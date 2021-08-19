@@ -1,2 +1,5 @@
 optConfig:
   optOutStrategy: true
+  #optInRepos:
+  #- repo-one
+  #- repo-two
