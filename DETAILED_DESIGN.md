@@ -4,7 +4,7 @@
 
 ## 1. 目的
 
-`ARCHITECTURE_OVERVIEW.md` で合意した全体構成を、実装可能な粒度まで具体化する。
+`ARCHITECTURE_OVERVIEW.md` で合意した全体構成を、TypeScript 実装可能な粒度まで具体化する。
 
 本ドキュメントは、個人開発で運用し続けられるシンプルさを優先する。
 
@@ -13,27 +13,29 @@
 1. 単一実行入口を基本とし、定期実行は `obsflow tick` を中心に運用する。
 2. `obsflow run` と `obsflow validate` は手動補助コマンドとして扱う。
 3. レコード粒度は 1 ソース = 1 レコードを維持する。
-4. 通知は定期ジョブではなく、エラーハンドリングの横断モジュールとして扱う。
-5. Go の一般的な実装パターンに沿い、過剰分割を避ける。
+4. Vault 更新は Cursor SDK エージェント + Obsidian Skills 経由で行う。
+5. 外部依存は provider で抽象化し、初期は mock を標準にする。
 6. 状態管理は interface で抽象化し、SQLite 以外のストアへ将来差し替え可能にする。
 
 ## 3. 技術スタック
 
-- 言語: Go 1.25
-- CLI: `spf13/cobra`
-- 設定ファイル: YAML (`gopkg.in/yaml.v3`)
+- 言語: TypeScript
+- 実行環境: Node.js 20+
+- エージェント実行: `@cursor/sdk`
+- CLI: `commander` (または同等の標準的 CLI ライブラリ)
+- 設定ファイル: YAML (`yaml`)
 - 定期実行: macOS launchd
-- 初期状態ストア: SQLite
-- ログ: `log/slog` (JSON Handler)
+- 初期状態ストア: SQLite (`better-sqlite3` または同等)
+- ログ: JSON 構造化ログ (`pino` または同等)
 - 通知: Slack Incoming Webhook
-- RSS クライアント: `github.com/mmcdole/gofeed` `v1.3.0`
-- X クライアント (real provider): `github.com/xdevplatform/xurl` `v1.1.0` (CLI 実行アダプタ)
+- X SDK (real provider): `@xdevplatform/xdk`
 
 ### 3.1 外部依存の provider 方針
 
-- X は `provider: mock|xurl` の切替を持つ。
-- 開発初期は `mock` をデフォルトとし、`xurl` は後から有効化できる構成にする。
-- `xurl` は CLI のため、`exec.CommandContext` 経由で repository 実装から呼び出す。
+- X は `provider: mock|x-sdk` の切替を持つ。
+- AI は `provider: mock|real` の切替を持つ。
+- Alert は `provider: mock|slack` の切替を持つ。
+- 開発初期は `mock` をデフォルトとし、`real` は後から有効化できる構成にする。
 - X mock のレスポンス形は X API ドキュメント (`https://docs.x.com/x-api/overview`) の基本構造に寄せる。
 
 ## 4. ディレクトリ構成
@@ -41,38 +43,40 @@
 個人開発の保守性を重視し、`handler / service / repository` に寄せた最小構成とする。
 
 ```text
-cmd/obsflow/main.go
-
-internal/
+src/
+  cli/
+    index.ts
   config/
-    load.go
-    types.go
+    load.ts
+    types.ts
   model/
-    record.go
-    job.go
+    record.ts
+    job.ts
   handler/
-    tick.go
-    run.go
-    validate.go
+    tick.ts
+    run.ts
+    validate.ts
   service/
-    tick_service.go
-    collect_service.go
-    summarize_service.go
-    digest_service.go
+    tick-service.ts
+    collect-service.ts
+    summarize-service.ts
+    digest-service.ts
   repository/
-    interfaces.go
-    state_sqlite.go
-    source_rss.go
-    source_x.go
-    vault_fs.go
-    ai_external.go
-    alert_slack.go
+    interfaces.ts
+    state-sqlite.ts
+    source-rss.ts
+    source-x-sdk.ts
+    source-x-mock.ts
+    vault-agent.ts
+    ai-mock.ts
+    ai-real.ts
+    alert-slack.ts
+    alert-mock.ts
+  agent/
+    cursor-agent.ts
+test/
+  fixtures/
 ```
-
-補足:
-- `internal` はアプリ固有コードを外部公開しないために利用する。
-- `pkg` は外部向けライブラリ提供の必要が出るまで作成しない。
-- `state_postgres.go` などの非ローカル実装は必要時に追加する。
 
 ## 5. レイヤー責務
 
@@ -85,7 +89,7 @@ internal/
 - repository interface に依存し、実装詳細には依存しない。
 
 ### 5.3 repository 層
-- 外部 I/O を担当 (X API、RSS、Vault ファイル、AI API、Slack、状態 DB)。
+- 外部 I/O を担当 (X SDK、RSS、Vault、AI、Slack、状態 DB)。
 - 永続化や API 呼び出しをカプセル化する。
 
 ## 6. CLI 仕様
@@ -93,7 +97,7 @@ internal/
 ### 6.1 コマンド名と構成
 
 - 実行ファイル名は `obsflow` とする。
-- `pipeline` は汎用名で衝突や誤認が起きやすいため、本プロジェクトでは利用しない。
+- `pipeline` は汎用名で衝突や誤認が起きやすいため利用しない。
 
 コマンド構成:
 
@@ -168,10 +172,7 @@ sources:
       schedule: "*/30 * * * *"
 
   x:
-    provider: "mock" # mock|xurl
-    xurl:
-      bin: "xurl"
-      auth_mode: "oauth2"
+    provider: "mock" # mock|x-sdk
     search:
       - id: "ai-search"
         enabled: true
@@ -186,6 +187,9 @@ sources:
       - id: "my-bookmarks"
         enabled: true
         schedule: "0 * * * *"
+
+ai:
+  provider: "mock" # mock|real
 
 jobs:
   - id: "summarize-main"
@@ -253,11 +257,11 @@ obsflow tick --config ./config.yaml
 
 `tick` 実行時の標準フロー:
 
-1. `tick_run_id` を生成する (UUID)。
+1. `tick_run_id` を生成する (`crypto.randomUUID()`)。
 2. 設定読込・検証。
 3. `launchd` の起動時刻を基準に、各 `schedule` の due 判定を実施。
-4. source 収集 (RSS/X) を順次実行し、Vault へ 1 レコード単位で保存。
-5. due の summarize ジョブを実行し、対象ノートへ AI 要約を追記/更新。
+4. source 収集 (RSS/X) を順次実行し、レコードを保存。
+5. due の summarize ジョブを実行し、Vault 更新を Cursor SDK + Obsidian Skills で実施。
 6. due の digest ジョブを実行。
 7. 失敗があれば Alert で Slack 通知。
 
@@ -285,11 +289,11 @@ flowchart TD
     H --> I{Collect failed?}
     I -- Yes --> J[Record failure<br/>continue fail-soft]
     J --> K[Aggregate and send Slack alert]
-    I -- No --> L[Write/update Vault notes]
+    I -- No --> L[Persist normalized records]
 
     L --> M{Summarize due?}
     M -- Yes --> N[Run summarize]
-    N --> O[Update AI Summary section]
+    N --> O[Cursor SDK Agent<br/>updates Vault via Obsidian Skills]
     M -- No --> P{Digest due?}
     O --> P
 
@@ -316,6 +320,7 @@ flowchart TD
 - summarize 対象ノートに `## AI Summary` セクションを持たせる。
 - セクションが未作成なら追加、既存なら同セクションのみ置換更新する。
 - raw 本文セクションは上書きしない。
+- 実際の編集は Obsidian Skills を前提とした Cursor SDK エージェントに委譲する。
 
 ## 10. 状態管理設計
 
@@ -326,35 +331,39 @@ flowchart TD
 - 失敗復旧
 - 定期処理の整合
 
-### 10.1 repository interface
+### 10.1 repository interface (TypeScript)
 
-```go
-type StateRepository interface {
-    GetCheckpoint(ctx context.Context, sourceID string) (Checkpoint, error)
-    PutCheckpoint(ctx context.Context, cp Checkpoint) error
+```ts
+export interface StateRepository {
+  getCheckpoint(sourceId: string): Promise<Checkpoint | null>;
+  putCheckpoint(cp: Checkpoint): Promise<void>;
 
-    SeenSourceItem(ctx context.Context, sourceID string, itemKey string) (bool, error)
-    MarkSourceItemSeen(ctx context.Context, sourceID string, itemKey string, contentHash string) error
+  seenSourceItem(sourceId: string, itemKey: string): Promise<boolean>;
+  markSourceItemSeen(
+    sourceId: string,
+    itemKey: string,
+    contentHash: string,
+  ): Promise<void>;
 
-    SeenContentHash(ctx context.Context, sourceID string, contentHash string) (bool, error)
+  seenContentHash(sourceId: string, contentHash: string): Promise<boolean>;
 
-    LastJobRun(ctx context.Context, jobID string) (JobRun, error)
-    SaveJobRun(ctx context.Context, run JobRun) error // run には RunID(UUID) を含める
+  lastJobRun(jobId: string): Promise<JobRun | null>;
+  saveJobRun(run: JobRun): Promise<void>;
 
-    InTx(ctx context.Context, fn func(tx StateTx) error) error
-    Close() error
+  inTx<T>(fn: (tx: StateTx) => Promise<T>): Promise<T>;
+  close(): Promise<void>;
 }
 ```
 
 ### 10.2 transaction 境界
 
-- 単一 source の 1 アイテム処理 (`MarkSourceItemSeen` + `PutCheckpoint`) は同一トランザクションで commit する。
+- 単一 source の 1 アイテム処理 (`markSourceItemSeen` + `putCheckpoint`) は同一トランザクションで commit する。
 - これにより、途中失敗時の checkpoint/既読状態の不整合を防ぐ。
 
 ### 10.3 key/hash 生成規則
 
 - X:
-  - source item key: tweet ID
+  - source item key: post ID
   - content hash: 正規化済み本文 + 展開 URL + author ID
 - RSS:
   - source item key: `guid` 優先、なければ `link`、最後に `title + published_at`
@@ -363,8 +372,7 @@ type StateRepository interface {
 ### 10.4 状態データの ID 方針
 
 - 状態管理データには ID を付与する。
-- ID は Go 1.25 の標準パッケージ `uuid` (`import "uuid"`) で生成する。
-- 新規 ID 生成は `uuid.New()` を利用する。
+- 新規 ID 生成は `crypto.randomUUID()` を利用する。
 - 最低限、以下の ID を扱う:
   - `tick_run_id`: `obsflow tick` 1 回の実行単位 ID
   - `job_run_id`: 各ジョブ実行単位 ID
@@ -381,7 +389,8 @@ type StateRepository interface {
 - timestamp
 - target/source id
 - error summary
-- retry hint (可能なら)
+- `tick_run_id`
+- `job_run_id` (該当時)
 
 リトライ方針:
 - 同一 tick 内では自動リトライしない (処理を単純化する)。
@@ -391,10 +400,9 @@ type StateRepository interface {
 
 - launchd は一定間隔で `obsflow tick --config ...` を呼ぶ。
 - 推奨間隔は 5 分 (最短 schedule の上限に合わせて調整)。
-- ログは `log/slog` を使った JSON 1 行形式を標準出力/標準エラーへ出し、launchd 側でファイル化する。
+- ログは JSON 1 行形式を標準出力/標準エラーへ出し、launchd 側でファイル化する。
 - すべてのログイベントに `tick_run_id` を含める。
 - ジョブ単位ログには `job_run_id`, `job_id`, `source_id` (該当時) を追加する。
-- エラーログと Slack 通知には `tick_run_id` / `job_run_id` を含め、状態管理データと相互参照できるようにする。
 
 ## 13. 非ゴール / 将来拡張
 
@@ -406,6 +414,6 @@ type StateRepository interface {
 
 将来拡張:
 
-- GitHub Actions での同一バイナリ運用
+- GitHub Actions での同一実行フロー運用
 - 状態ストアを非ローカル DB へ置換
 - 通知チャネル追加 (メールなど)
