@@ -28,12 +28,12 @@
 - 初期状態ストア: SQLite (`better-sqlite3` または同等)
 - ログ: JSON 構造化ログ (`pino` または同等)
 - 通知: Slack Incoming Webhook
-- RSS クライアント (real provider): `rss-parser`
+- RSS クライアント (real provider): `feedsmith`
 - X SDK (real provider): `@xdevplatform/xdk`
 
 ### 3.1 外部依存の provider 方針
 
-- RSS は `provider: mock|rss-parser` の切替を持つ。
+- RSS は `provider: mock|feedsmith` の切替を持つ。
 - X は `provider: mock|x-sdk` の切替を持つ。
 - AI は `provider: mock|real` の切替を持つ。
 - Alert は `provider: mock|slack` の切替を持つ。
@@ -58,7 +58,7 @@ src/
   adapters/
     interfaces.ts
     state-sqlite.ts
-    rss-parser.ts
+    feedsmith.ts
     x-sdk.ts
     x-mock.ts
     ai-mock.ts
