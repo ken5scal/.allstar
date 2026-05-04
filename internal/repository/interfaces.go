@@ -29,3 +29,9 @@ type StateRepository interface {
 	InTx(ctx context.Context, fn func(tx StateTx) error) error
 	Close() error
 }
+
+type VaultRepository interface {
+	UpsertRecord(ctx context.Context, record model.Record) (string, error)
+	ReadRecord(ctx context.Context, path string) ([]byte, error)
+	UpdateAISummary(ctx context.Context, path string, summary string) error
+}
