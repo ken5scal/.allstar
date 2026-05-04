@@ -56,6 +56,7 @@ func TestTickSkipsNotDue(t *testing.T) {
 func TestFailSoftContinuesAfterTargetFailure(t *testing.T) {
 	now := time.Date(2026, 5, 4, 3, 0, 0, 0, time.UTC)
 	state := &fakeTickState{}
+	alert := repository.NewMockAlertClient()
 	calls := []string{}
 	svc := NewTickService(state, fixedClock{now: now}, func(_ context.Context, job model.TickTarget) error {
 		calls = append(calls, job.ID)
@@ -63,7 +64,7 @@ func TestFailSoftContinuesAfterTargetFailure(t *testing.T) {
 			return apperror.New(apperror.CodeProcessingFailure, errors.New("first failed"))
 		}
 		return nil
-	})
+	}).WithAlert(alert)
 
 	result := svc.Run(t.Context(), []model.TickTarget{
 		{ID: "first", Schedule: "* * * * *", Enabled: true},
@@ -78,6 +79,60 @@ func TestFailSoftContinuesAfterTargetFailure(t *testing.T) {
 	}
 	if len(result.Failures) != 1 {
 		t.Fatalf("failures = %#v", result.Failures)
+	}
+	if len(alert.SentMessages()) != 1 {
+		t.Fatalf("alert events = %#v", alert.SentMessages())
+	}
+}
+
+func TestTickSendsAlertOnFailure(t *testing.T) {
+	now := time.Date(2026, 5, 4, 3, 0, 0, 0, time.UTC)
+	alert := repository.NewMockAlertClient()
+	svc := NewTickService(&fakeTickState{}, fixedClock{now: now}, func(context.Context, model.TickTarget) error {
+		return apperror.New(apperror.CodeExternalDependency, errors.New("api unavailable"))
+	}).WithAlert(alert)
+
+	result := svc.Run(t.Context(), []model.TickTarget{{ID: "x-search", Schedule: "* * * * *", Enabled: true}})
+	if result.ExitCode != apperror.CodeExternalDependency {
+		t.Fatalf("exit code = %d", result.ExitCode)
+	}
+	messages := alert.SentMessages()
+	if len(messages) != 1 || len(messages[0].Failures) != 1 || messages[0].Failures[0].TargetID != "x-search" || messages[0].TickRunID == "" {
+		t.Fatalf("alert event = %#v", messages)
+	}
+}
+
+func TestAlertDeduplicatesSameCauseInTick(t *testing.T) {
+	now := time.Date(2026, 5, 4, 3, 0, 0, 0, time.UTC)
+	alert := repository.NewMockAlertClient()
+	svc := NewTickService(&fakeTickState{}, fixedClock{now: now}, func(context.Context, model.TickTarget) error {
+		return apperror.New(apperror.CodeProcessingFailure, errors.New("same cause"))
+	}).WithAlert(alert)
+
+	result := svc.Run(t.Context(), []model.TickTarget{
+		{ID: "first", Schedule: "* * * * *", Enabled: true},
+		{ID: "second", Schedule: "* * * * *", Enabled: true},
+	})
+	if len(result.Failures) != 2 {
+		t.Fatalf("failures = %#v", result.Failures)
+	}
+	messages := alert.SentMessages()
+	if len(messages) != 1 || len(messages[0].Failures) != 1 {
+		t.Fatalf("deduplicated alert events = %#v", messages)
+	}
+}
+
+func TestAlertFailureDoesNotMaskHigherPriorityExitCode(t *testing.T) {
+	now := time.Date(2026, 5, 4, 3, 0, 0, 0, time.UTC)
+	alert := repository.NewMockAlertClient()
+	alert.Err = apperror.New(apperror.CodeProcessingFailure, errors.New("alert failed"))
+	svc := NewTickService(&fakeTickState{}, fixedClock{now: now}, func(context.Context, model.TickTarget) error {
+		return apperror.New(apperror.CodeExternalDependency, errors.New("api unavailable"))
+	}).WithAlert(alert)
+
+	result := svc.Run(t.Context(), []model.TickTarget{{ID: "x-search", Schedule: "* * * * *", Enabled: true}})
+	if result.ExitCode != apperror.CodeExternalDependency {
+		t.Fatalf("exit code = %d, want external dependency", result.ExitCode)
 	}
 }
 

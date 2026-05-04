@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strings"
 
 	"github.com/ken5scal/obsflow/internal/model"
 )
@@ -50,4 +51,27 @@ type XClient interface {
 type AIClient interface {
 	Summarize(ctx context.Context, record model.Record) (string, error)
 	BuildDigest(ctx context.Context, cadence string, records []model.Record) (string, error)
+}
+
+type AlertClient interface {
+	SendError(ctx context.Context, alert Alert) error
+}
+
+type Alert struct {
+	TickRunID string
+	Failures  []AlertFailure
+}
+
+type AlertFailure struct {
+	TargetID     string
+	ErrorSummary string
+	RetryHint    string
+}
+
+func (a Alert) Summary() string {
+	parts := make([]string, 0, len(a.Failures))
+	for _, failure := range a.Failures {
+		parts = append(parts, failure.TargetID+": "+failure.ErrorSummary)
+	}
+	return strings.Join(parts, "; ")
 }

@@ -21,6 +21,7 @@ type TickService struct {
 	state    repository.StateRepository
 	clock    Clock
 	executor JobExecutor
+	alert    repository.AlertClient
 }
 
 type TickResult struct {
@@ -46,6 +47,11 @@ func NewTickService(state repository.StateRepository, clock Clock, executor JobE
 		clock:    clock,
 		executor: executor,
 	}
+}
+
+func (s *TickService) WithAlert(alert repository.AlertClient) *TickService {
+	s.alert = alert
+	return s
 }
 
 func (s *TickService) Run(ctx context.Context, jobs []model.TickTarget) TickResult {
@@ -100,10 +106,39 @@ func (s *TickService) Run(ctx context.Context, jobs []model.TickTarget) TickResu
 			result.addFailure(job.ID, apperror.CodeExternalDependency, fmt.Errorf("save job run: %w", err))
 		}
 	}
+	if s.alert != nil && len(result.Failures) > 0 {
+		if err := s.alert.SendError(ctx, repository.Alert{
+			TickRunID: result.TickRunID,
+			Failures:  dedupeFailures(result.Failures),
+		}); err != nil {
+			result.addFailure("alert", apperror.CodeExternalDependency, fmt.Errorf("send alert: %w", err))
+		}
+	}
 	return result
 }
 
 func (r *TickResult) addFailure(jobID string, code apperror.Code, err error) {
 	r.Failures = append(r.Failures, TickFailure{JobID: jobID, Code: code, Err: err})
 	r.ExitCode = apperror.HighestPriority(r.ExitCode, code)
+}
+
+func dedupeFailures(failures []TickFailure) []repository.AlertFailure {
+	seen := map[string]struct{}{}
+	out := make([]repository.AlertFailure, 0, len(failures))
+	for _, failure := range failures {
+		summary := ""
+		if failure.Err != nil {
+			summary = failure.Err.Error()
+		}
+		key := summary
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, repository.AlertFailure{
+			TargetID:     failure.JobID,
+			ErrorSummary: summary,
+		})
+	}
+	return out
 }
