@@ -203,12 +203,13 @@ obsflow tick --config ./config.yaml
 
 `tick` 実行時の標準フロー:
 
-1. 設定読込・検証。
-2. `launchd` の起動時刻を基準に、各 `schedule` の due 判定を実施。
-3. source 収集 (RSS/X) を順次実行し、Vault へ 1 レコード単位で保存。
-4. due の summarize ジョブを実行し、対象ノートへ AI 要約を追記/更新。
-5. due の digest ジョブを実行。
-6. 失敗があれば Alert で Slack 通知。
+1. `tick_run_id` を生成する (UUID)。
+2. 設定読込・検証。
+3. `launchd` の起動時刻を基準に、各 `schedule` の due 判定を実施。
+4. source 収集 (RSS/X) を順次実行し、Vault へ 1 レコード単位で保存。
+5. due の summarize ジョブを実行し、対象ノートへ AI 要約を追記/更新。
+6. due の digest ジョブを実行。
+7. 失敗があれば Alert で Slack 通知。
 
 失敗が発生しても、他ターゲットが実行可能なら継続する (fail-soft)。
 
@@ -253,7 +254,7 @@ type StateRepository interface {
     SeenContentHash(ctx context.Context, sourceID string, contentHash string) (bool, error)
 
     LastJobRun(ctx context.Context, jobID string) (JobRun, error)
-    SaveJobRun(ctx context.Context, run JobRun) error
+    SaveJobRun(ctx context.Context, run JobRun) error // run には RunID(UUID) を含める
 
     InTx(ctx context.Context, fn func(tx StateTx) error) error
     Close() error
@@ -273,6 +274,16 @@ type StateRepository interface {
 - RSS:
   - source item key: `guid` 優先、なければ `link`、最後に `title + published_at`
   - content hash: 正規化済み title + summary/content + canonical URL
+
+### 10.4 状態データの ID 方針
+
+- 状態管理データには ID を付与する。
+- ID は Go 1.25 の標準パッケージ `uuid` (`import "uuid"`) で生成する。
+- 新規 ID 生成は `uuid.New()` を利用する。
+- 最低限、以下の ID を扱う:
+  - `tick_run_id`: `obsflow tick` 1 回の実行単位 ID
+  - `job_run_id`: 各ジョブ実行単位 ID
+- `job_runs` には `job_run_id` と `tick_run_id` の両方を保存し、親子関係を追跡可能にする。
 
 ## 11. エラー通知とリトライ
 
@@ -296,6 +307,9 @@ type StateRepository interface {
 - launchd は一定間隔で `obsflow tick --config ...` を呼ぶ。
 - 推奨間隔は 5 分 (最短 schedule の上限に合わせて調整)。
 - ログは `log/slog` を使った JSON 1 行形式を標準出力/標準エラーへ出し、launchd 側でファイル化する。
+- すべてのログイベントに `tick_run_id` を含める。
+- ジョブ単位ログには `job_run_id`, `job_id`, `source_id` (該当時) を追加する。
+- エラーログと Slack 通知には `tick_run_id` / `job_run_id` を含め、状態管理データと相互参照できるようにする。
 
 ## 13. 非ゴール / 将来拡張
 
