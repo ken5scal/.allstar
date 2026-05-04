@@ -1,0 +1,52 @@
+version: 1
+timezone: "Asia/Tokyo"
+
+defaults:
+  vault_path: "./vault"
+  state:
+    driver: "sqlite"
+    dsn: "./state.db"
+  auth:
+    x_bearer_token_env: "X_BEARER_TOKEN"
+    ai_api_key_env: "AI_API_KEY"
+  alert:
+    slack_webhook_env: "SLACK_WEBHOOK_URL"
+
+sources:
+  rss:
+    - id: "hn"
+      enabled: true
+      url: "https://news.ycombinator.com/rss"
+      schedule: "*/30 * * * *"
+
+  x:
+    provider: "mock"
+    xurl:
+      bin: "xurl"
+      auth_mode: "oauth2"
+    search:
+      - id: "ai-search"
+        enabled: true
+        query: "(llm OR agent) lang:ja -is:retweet -is:reply"
+        schedule: "*/15 * * * *"
+    lists:
+      - id: "trusted-list"
+        enabled: true
+        list_id: "1234567890"
+        schedule: "*/20 * * * *"
+    bookmarks:
+      - id: "my-bookmarks"
+        enabled: true
+        schedule: "0 * * * *"
+
+jobs:
+  - id: "summarize-main"
+    type: "summarize"
+    enabled: true
+    schedule: "*/15 * * * *"
+
+  - id: "digest-daily"
+    type: "digest"
+    cadence: "daily"
+    enabled: true
+    schedule: "0 22 * * *"
