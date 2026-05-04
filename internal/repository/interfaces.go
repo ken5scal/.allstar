@@ -1,0 +1,31 @@
+package repository
+
+import (
+	"context"
+
+	"github.com/ken5scal/obsflow/internal/model"
+)
+
+type StateReader interface {
+	GetCheckpoint(ctx context.Context, sourceID string) (model.Checkpoint, error)
+	SeenSourceItem(ctx context.Context, sourceID string, itemKey string) (bool, error)
+	SeenContentHash(ctx context.Context, sourceID string, contentHash string) (bool, error)
+	LastJobRun(ctx context.Context, jobID string) (model.JobRun, error)
+}
+
+type StateWriter interface {
+	PutCheckpoint(ctx context.Context, cp model.Checkpoint) error
+	MarkSourceItemSeen(ctx context.Context, sourceID string, itemKey string, contentHash string) error
+	SaveJobRun(ctx context.Context, run model.JobRun) error
+}
+
+type StateTx interface {
+	StateReader
+	StateWriter
+}
+
+type StateRepository interface {
+	StateTx
+	InTx(ctx context.Context, fn func(tx StateTx) error) error
+	Close() error
+}
