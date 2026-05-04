@@ -46,3 +46,8 @@ type XClient interface {
 	Lists(ctx context.Context, sourceID string, listID string) ([]model.SourceItem, error)
 	Bookmarks(ctx context.Context, sourceID string) ([]model.SourceItem, error)
 }
+
+type AIClient interface {
+	Summarize(ctx context.Context, record model.Record) (string, error)
+	BuildDigest(ctx context.Context, cadence string, records []model.Record) (string, error)
+}
