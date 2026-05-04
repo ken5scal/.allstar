@@ -26,6 +26,15 @@
 - 初期状態ストア: SQLite
 - ログ: `log/slog` (JSON Handler)
 - 通知: Slack Incoming Webhook
+- RSS クライアント: `github.com/mmcdole/gofeed` `v1.3.0`
+- X クライアント (real provider): `github.com/xdevplatform/xurl` `v1.1.0` (CLI 実行アダプタ)
+
+### 3.1 外部依存の provider 方針
+
+- X は `provider: mock|xurl` の切替を持つ。
+- 開発初期は `mock` をデフォルトとし、`xurl` は後から有効化できる構成にする。
+- `xurl` は CLI のため、`exec.CommandContext` 経由で repository 実装から呼び出す。
+- X mock のレスポンス形は X API ドキュメント (`https://docs.x.com/x-api/overview`) の基本構造に寄せる。
 
 ## 4. ディレクトリ構成
 
@@ -159,6 +168,10 @@ sources:
       schedule: "*/30 * * * *"
 
   x:
+    provider: "mock" # mock|xurl
+    xurl:
+      bin: "xurl"
+      auth_mode: "oauth2"
     search:
       - id: "ai-search"
         enabled: true
