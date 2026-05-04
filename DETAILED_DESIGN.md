@@ -108,7 +108,11 @@ internal/
 - `summarize`
 - `digest-daily`
 - `digest-weekly`
-- `digest-all` (`daily` と `weekly` の両方を実行)
+- `digest-monthly`
+- `digest-quarterly`
+- `digest-semiannual` (半期)
+- `digest-annually`
+- `digest-all` (有効なすべての digest cadence を実行)
 
 ### 6.3 終了コード
 
@@ -187,7 +191,40 @@ jobs:
     cadence: "weekly"
     enabled: true
     schedule: "0 21 * * 0"
+
+  - id: "digest-monthly"
+    type: "digest"
+    cadence: "monthly"
+    enabled: true
+    schedule: "0 21 1 * *"
+
+  - id: "digest-quarterly"
+    type: "digest"
+    cadence: "quarterly"
+    enabled: true
+    schedule: "0 21 1 */3 *"
+
+  - id: "digest-semiannual"
+    type: "digest"
+    cadence: "semiannual"
+    enabled: true
+    schedule: "0 21 1 1,7 *"
+
+  - id: "digest-annually"
+    type: "digest"
+    cadence: "annually"
+    enabled: true
+    schedule: "0 21 1 1 *"
 ```
+
+`digest` で利用する `cadence` の許容値:
+
+- `daily`
+- `weekly`
+- `monthly`
+- `quarterly`
+- `semiannual` (半期)
+- `annually`
 
 1Password CLI を使った実行例:
 
