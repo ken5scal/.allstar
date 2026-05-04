@@ -219,6 +219,41 @@ obsflow tick --config ./config.yaml
 - `tick` が `LastJobRun` と現在時刻から「今回実行すべき対象」を判定する。
 - スリープ復帰後は catch-up 判定を行い、未実行スロットを 1 回分実行する。
 
+### 8.2 フローチャート
+
+```mermaid
+flowchart TD
+    A[launchd triggers<br/>obsflow tick] --> B[Generate tick_run_id]
+    B --> C[Load and validate config]
+    C --> D{Config valid?}
+    D -- No --> E[Emit error log with IDs]
+    E --> F[Send Slack alert]
+    F --> Z[Exit]
+    D -- Yes --> G[Evaluate due targets<br/>from schedule + LastJobRun]
+
+    G --> H[Collect RSS/X]
+    H --> I{Collect failed?}
+    I -- Yes --> J[Record failure<br/>continue fail-soft]
+    J --> K[Aggregate and send Slack alert]
+    I -- No --> L[Write/update Vault notes]
+
+    L --> M{Summarize due?}
+    M -- Yes --> N[Run summarize]
+    N --> O[Update AI Summary section]
+    M -- No --> P{Digest due?}
+    O --> P
+
+    P -- Yes --> Q[Run digest job]
+    P -- No --> R[Persist job runs/checkpoints]
+    Q --> R
+
+    R --> S{Any failures in tick?}
+    S -- Yes --> T[Send Slack alert with tick_run_id/job_run_id]
+    S -- No --> U[Info log: success]
+    T --> Z
+    U --> Z
+```
+
 ## 9. Vault 更新仕様
 
 ### 9.1 ノート作成
