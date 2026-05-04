@@ -10,7 +10,7 @@
 
 ## 2. 設計原則
 
-1. 単一実行入口を基本とし、定期実行は `pipeline tick` を中心に運用する。
+1. 単一実行入口を基本とし、定期実行は `obsflow tick` を中心に運用する。
 2. レコード粒度は 1 ソース = 1 レコードを維持する。
 3. 通知は定期ジョブではなく、エラーハンドリングの横断モジュールとして扱う。
 4. Go の一般的な実装パターンに沿い、過剰分割を避ける。
@@ -30,7 +30,7 @@
 個人開発の保守性を重視し、`handler / service / repository` に寄せた最小構成とする。
 
 ```text
-cmd/pipeline/main.go
+cmd/obsflow/main.go
 
 internal/
   config/
@@ -78,13 +78,18 @@ internal/
 
 ## 6. CLI 仕様
 
-## 6.1 コマンド構成
+## 6.1 コマンド名と構成
 
-- `pipeline tick --config <path>`
+- 実行ファイル名は `obsflow` とする。
+- `pipeline` は汎用名で衝突や誤認が起きやすいため、本プロジェクトでは利用しない。
+
+コマンド構成:
+
+- `obsflow tick --config <path>`
   - 定期実行用の主コマンド。設定に基づいて実行対象を判定する。
-- `pipeline run --config <path> --targets <csv>`
+- `obsflow run --config <path> --targets <csv>`
   - 手動実行用。`targets` で明示した処理のみ実行する。
-- `pipeline validate --config <path>`
+- `obsflow validate --config <path>`
   - 設定ファイル検証のみを行う。
 
 `tick` はサブコマンド名であり、オプションではない。
@@ -210,7 +215,7 @@ type StateRepository interface {
 
 ## 11. ローカル運用 (launchd)
 
-- launchd は一定間隔で `pipeline tick --config ...` を呼ぶ。
+- launchd は一定間隔で `obsflow tick --config ...` を呼ぶ。
 - スリープ復帰後の取りこぼしを避けるため、source 実装側で増分窓を持たせる。
 - ログは標準出力/標準エラーへ出し、launchd 側でファイル化する。
 
