@@ -28,10 +28,12 @@
 - 初期状態ストア: SQLite (`better-sqlite3` または同等)
 - ログ: JSON 構造化ログ (`pino` または同等)
 - 通知: Slack Incoming Webhook
+- RSS クライアント (real provider): `rss-parser`
 - X SDK (real provider): `@xdevplatform/xdk`
 
 ### 3.1 外部依存の provider 方針
 
+- RSS は `provider: mock|rss-parser` の切替を持つ。
 - X は `provider: mock|x-sdk` の切替を持つ。
 - AI は `provider: mock|real` の切替を持つ。
 - Alert は `provider: mock|slack` の切替を持つ。
@@ -40,40 +42,32 @@
 
 ## 4. ディレクトリ構成
 
-個人開発の保守性を重視し、`handler / service / repository` に寄せた最小構成とする。
+個人開発の保守性を重視し、TypeScript 向けに浅い構成を採用する。
 
 ```text
 src/
-  cli/
-    index.ts
-  config/
-    load.ts
-    types.ts
-  model/
-    record.ts
-    job.ts
-  handler/
-    tick.ts
-    run.ts
-    validate.ts
-  service/
-    tick-service.ts
-    collect-service.ts
-    summarize-service.ts
-    digest-service.ts
-  repository/
+  main.ts
+  cli.ts
+  config.ts
+  types.ts
+  orchestrator.ts
+  jobs/
+    collect.ts
+    summarize.ts
+    digest.ts
+  adapters/
     interfaces.ts
     state-sqlite.ts
-    source-rss.ts
-    source-x-sdk.ts
-    source-x-mock.ts
-    vault-agent.ts
+    rss-parser.ts
+    x-sdk.ts
+    x-mock.ts
     ai-mock.ts
     ai-real.ts
+    vault-agent.ts
     alert-slack.ts
     alert-mock.ts
-  agent/
-    cursor-agent.ts
+  agent.ts
+  logger.ts
 test/
   fixtures/
 ```
@@ -260,8 +254,8 @@ obsflow tick --config ./config.yaml
 1. `tick_run_id` を生成する (`crypto.randomUUID()`)。
 2. 設定読込・検証。
 3. `launchd` の起動時刻を基準に、各 `schedule` の due 判定を実施。
-4. source 収集 (RSS/X) を順次実行し、レコードを保存。
-5. due の summarize ジョブを実行し、Vault 更新を Cursor SDK + Obsidian Skills で実施。
+4. source 収集 (RSS/X) を順次実行し、Vault へ 1 レコード単位で Cursor SDK + Obsidian Skills を使って保存する。
+5. due の summarize ジョブを実行し、AI Summary の更新内容を生成する。
 6. due の digest ジョブを実行。
 7. 失敗があれば Alert で Slack 通知。
 
@@ -289,11 +283,11 @@ flowchart TD
     H --> I{Collect failed?}
     I -- Yes --> J[Record failure<br/>continue fail-soft]
     J --> K[Aggregate and send Slack alert]
-    I -- No --> L[Persist normalized records]
+    I -- No --> L[Cursor SDK Agent saves each record<br/>to Vault via Obsidian Skills]
 
     L --> M{Summarize due?}
     M -- Yes --> N[Run summarize]
-    N --> O[Cursor SDK Agent<br/>updates Vault via Obsidian Skills]
+    N --> O[Generate AI Summary updates]
     M -- No --> P{Digest due?}
     O --> P
 
