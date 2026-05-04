@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"io"
 	"strings"
 
 	"github.com/ken5scal/obsflow/internal/model"
@@ -39,7 +40,7 @@ type VaultRepository interface {
 
 type RSSClient interface {
 	Fetch(ctx context.Context, sourceID string, feedURL string) ([]model.SourceItem, error)
-	Parse(ctx context.Context, sourceID string, data []byte) ([]model.SourceItem, error)
+	Parse(ctx context.Context, sourceID string, r io.Reader) ([]model.SourceItem, error)
 }
 
 type XClient interface {

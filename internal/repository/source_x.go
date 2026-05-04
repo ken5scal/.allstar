@@ -129,6 +129,7 @@ func xFixtureToSourceItems(sourceID, source string, fixture xFixture) ([]model.S
 			Source:         source,
 			SourceID:       sourceID,
 			SourceItemKey:  tweet.ID,
+			ContentHash:    normalizedHash(tweet.Text, tweet.AuthorID, ""),
 			Title:          title,
 			AuthorID:       tweet.AuthorID,
 			AuthorName:     author.Username,
