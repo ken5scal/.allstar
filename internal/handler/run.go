@@ -22,7 +22,7 @@ func newRunCommand(opts *rootOptions) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			targets := splitCSV(targetsCSV)
 			if len(targets) == 0 {
-				return apperror.WithExitCode(apperror.ExitConfigInputError, fmt.Errorf("run requires --targets"))
+				return apperror.New(apperror.CodeConfig, fmt.Errorf("run requires --targets"))
 			}
 
 			runID := uuid.New().String()
@@ -32,7 +32,7 @@ func newRunCommand(opts *rootOptions) *cobra.Command {
 			cfg, err := config.LoadFile(ctx, opts.configPath)
 			if err != nil {
 				logger.ErrorContext(ctx, "failed to load config", slog.String("error", err.Error()))
-				return apperror.WithExitCode(apperror.ExitConfigInputError, err)
+				return apperror.New(apperror.CodeConfig, err)
 			}
 
 			logger.InfoContext(

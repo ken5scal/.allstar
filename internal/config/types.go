@@ -12,6 +12,9 @@ const (
 	XProviderMock = "mock"
 	XProviderXURL = "xurl"
 
+	AlertProviderMock  = "mock"
+	AlertProviderSlack = "slack"
+
 	JobTypeSummarize = "summarize"
 	JobTypeDigest    = "digest"
 )

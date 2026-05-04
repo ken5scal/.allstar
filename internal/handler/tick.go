@@ -23,7 +23,7 @@ func newTickCommand(opts *rootOptions) *cobra.Command {
 			cfg, err := config.LoadFile(cmd.Context(), opts.configPath)
 			if err != nil {
 				logger.ErrorContext(cmd.Context(), "failed to load config", slog.String("command", "tick"), slog.String("error", err.Error()))
-				return apperror.WithExitCode(apperror.ExitConfigInputError, err)
+				return apperror.New(apperror.CodeConfig, err)
 			}
 
 			logger.InfoContext(

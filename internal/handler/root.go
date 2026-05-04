@@ -31,13 +31,14 @@ func NewRootCommand(out, errOut io.Writer) *cobra.Command {
 	return cmd
 }
 
-func Execute(ctx context.Context, out, errOut io.Writer) int {
+func Execute(ctx context.Context, out, errOut io.Writer, args []string) int {
 	cmd := NewRootCommand(out, errOut)
 	cmd.SetContext(ctx)
+	cmd.SetArgs(args)
 
 	if err := cmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(errOut, err.Error())
-		return apperror.Code(err)
+		return int(apperror.FromError(err))
 	}
 
 	return 0
