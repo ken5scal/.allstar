@@ -24,6 +24,7 @@
 - 設定ファイル: YAML (`gopkg.in/yaml.v3`)
 - 定期実行: macOS launchd
 - 初期状態ストア: SQLite
+- ログ: `log/slog` (JSON Handler)
 - 通知: Slack Incoming Webhook
 
 ## 4. ディレクトリ構成
@@ -125,8 +126,9 @@ k8s/dbt のように、上位に `version`、中位に `defaults`、下位に宣
 ### 7.1 重要ポリシー
 
 - 認証情報そのものは設定ファイルへ書かない。
+- 認証情報は 1Password CLI (`op`) で取得し、起動前に環境変数へ注入する。
 - 設定ファイルには `*_env` 形式で環境変数名のみを記載する。
-- `obsflow validate` は必須の `*_env` キーの存在を検証する。
+- `obsflow validate` は必須の `*_env` キーと実環境の変数存在を検証する。
 
 ### 7.2 設定例
 
@@ -185,6 +187,16 @@ jobs:
     cadence: "weekly"
     enabled: true
     schedule: "0 21 * * 0"
+```
+
+1Password CLI を使った実行例:
+
+```bash
+eval "$(op signin)"
+export X_BEARER_TOKEN="$(op read 'op://Private/obsflow/X_BEARER_TOKEN')"
+export AI_API_KEY="$(op read 'op://Private/obsflow/AI_API_KEY')"
+export SLACK_WEBHOOK_URL="$(op read 'op://Private/obsflow/SLACK_WEBHOOK_URL')"
+obsflow tick --config ./config.yaml
 ```
 
 ## 8. 実行シーケンスとスケジュール判定
@@ -283,7 +295,7 @@ type StateRepository interface {
 
 - launchd は一定間隔で `obsflow tick --config ...` を呼ぶ。
 - 推奨間隔は 5 分 (最短 schedule の上限に合わせて調整)。
-- ログは JSON 1 行形式を標準出力/標準エラーへ出し、launchd 側でファイル化する。
+- ログは `log/slog` を使った JSON 1 行形式を標準出力/標準エラーへ出し、launchd 側でファイル化する。
 
 ## 13. 非ゴール / 将来拡張
 
