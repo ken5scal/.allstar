@@ -1,0 +1,31 @@
+{
+  "data": [
+    {
+      "id": "1890011223344556679",
+      "text": "Bookmarked article about privacy preserving identity.",
+      "author_id": "1003",
+      "created_at": "2026-05-04T03:00:00Z",
+      "entities": {
+        "urls": [
+          {
+            "expanded_url": "https://example.com/privacy-id"
+          }
+        ]
+      }
+    }
+  ],
+  "includes": {
+    "users": [
+      {
+        "id": "1003",
+        "username": "reader",
+        "name": "Reader"
+      }
+    ]
+  },
+  "meta": {
+    "result_count": 1,
+    "newest_id": "1890011223344556679",
+    "oldest_id": "1890011223344556679"
+  }
+}

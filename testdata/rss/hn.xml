@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Fixture Feed</title>
+    <link>https://example.test/</link>
+    <description>Offline RSS fixture</description>
+    <item>
+      <title>First Fixture Item</title>
+      <link>https://example.test/posts/1</link>
+      <guid>fixture-guid-1</guid>
+      <pubDate>Mon, 04 May 2026 01:00:00 GMT</pubDate>
+      <description>First fixture summary.</description>
+    </item>
+    <item>
+      <title>Second Fixture Item</title>
+      <link>https://example.test/posts/2</link>
+      <guid>fixture-guid-2</guid>
+      <pubDate>Mon, 04 May 2026 02:00:00 GMT</pubDate>
+      <description>Second fixture summary.</description>
+    </item>
+  </channel>
+</rss>

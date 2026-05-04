@@ -34,3 +34,18 @@ type Attachment struct {
 	Name string `yaml:"name"`
 	Path string `yaml:"path"`
 }
+
+type SourceItem struct {
+	Source         string
+	SourceID       string
+	SourceItemKey  string
+	ContentHash    string
+	Title          string
+	AuthorID       string
+	AuthorName     string
+	AuthorUsername string
+	URL            string
+	Text           string
+	PublishedAt    time.Time
+	Raw            map[string]any
+}

@@ -35,3 +35,14 @@ type VaultRepository interface {
 	ReadRecord(ctx context.Context, path string) ([]byte, error)
 	UpdateAISummary(ctx context.Context, path string, summary string) error
 }
+
+type RSSClient interface {
+	Fetch(ctx context.Context, sourceID string, feedURL string) ([]model.SourceItem, error)
+	Parse(ctx context.Context, sourceID string, data []byte) ([]model.SourceItem, error)
+}
+
+type XClient interface {
+	Search(ctx context.Context, sourceID string, query string) ([]model.SourceItem, error)
+	Lists(ctx context.Context, sourceID string, listID string) ([]model.SourceItem, error)
+	Bookmarks(ctx context.Context, sourceID string) ([]model.SourceItem, error)
+}

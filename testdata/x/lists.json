@@ -1,0 +1,24 @@
+{
+  "data": [
+    {
+      "id": "1890011223344556680",
+      "text": "Trusted list item with useful context",
+      "author_id": "1002",
+      "created_at": "2026-05-04T01:00:00Z"
+    }
+  ],
+  "includes": {
+    "users": [
+      {
+        "id": "1002",
+        "username": "trusted",
+        "name": "Trusted Curator"
+      }
+    ]
+  },
+  "meta": {
+    "result_count": 1,
+    "newest_id": "1890011223344556680",
+    "oldest_id": "1890011223344556680"
+  }
+}
