@@ -11,10 +11,11 @@
 ## 2. 設計原則
 
 1. 単一実行入口を基本とし、定期実行は `obsflow tick` を中心に運用する。
-2. レコード粒度は 1 ソース = 1 レコードを維持する。
-3. 通知は定期ジョブではなく、エラーハンドリングの横断モジュールとして扱う。
-4. Go の一般的な実装パターンに沿い、過剰分割を避ける。
-5. 状態管理は interface で抽象化し、SQLite 以外のストアへ将来差し替え可能にする。
+2. `obsflow run` と `obsflow validate` は手動補助コマンドとして扱う。
+3. レコード粒度は 1 ソース = 1 レコードを維持する。
+4. 通知は定期ジョブではなく、エラーハンドリングの横断モジュールとして扱う。
+5. Go の一般的な実装パターンに沿い、過剰分割を避ける。
+6. 状態管理は interface で抽象化し、SQLite 以外のストアへ将来差し替え可能にする。
 
 ## 3. 技術スタック
 
@@ -42,6 +43,7 @@ internal/
   handler/
     tick.go
     run.go
+    validate.go
   service/
     tick_service.go
     collect_service.go
@@ -50,7 +52,6 @@ internal/
   repository/
     interfaces.go
     state_sqlite.go
-    state_postgres.go      # 将来の非ローカル環境用 (初期は stub 可)
     source_rss.go
     source_x.go
     vault_fs.go
@@ -61,6 +62,7 @@ internal/
 補足:
 - `internal` はアプリ固有コードを外部公開しないために利用する。
 - `pkg` は外部向けライブラリ提供の必要が出るまで作成しない。
+- `state_postgres.go` などの非ローカル実装は必要時に追加する。
 
 ## 5. レイヤー責務
 
@@ -78,7 +80,7 @@ internal/
 
 ## 6. CLI 仕様
 
-## 6.1 コマンド名と構成
+### 6.1 コマンド名と構成
 
 - 実行ファイル名は `obsflow` とする。
 - `pipeline` は汎用名で衝突や誤認が起きやすいため、本プロジェクトでは利用しない。
@@ -94,7 +96,7 @@ internal/
 
 `tick` はサブコマンド名であり、オプションではない。
 
-## 6.2 `targets` の値
+### 6.2 `targets` の値
 
 `run` で指定可能なターゲット:
 
@@ -103,18 +105,30 @@ internal/
 - `collect-x-lists`
 - `collect-x-bookmarks`
 - `summarize`
-- `digest`
+- `digest-daily`
+- `digest-weekly`
+- `digest-all` (`daily` と `weekly` の両方を実行)
 
-## 6.3 終了コード
+### 6.3 終了コード
 
 - `0`: 正常終了
 - `1`: 設定・入力エラー
 - `2`: 外部依存エラー (API/ネットワーク/DB)
 - `3`: 処理失敗 (一部または全体)
 
+fail-soft 実行で複数種別の失敗が混在した場合は、優先度 `1 > 2 > 3` で最上位を返す。
+
 ## 7. 設定ファイル仕様 (YAML)
 
 k8s/dbt のように、上位に `version`、中位に `defaults`、下位に宣言配列を持つ形を採用する。
+
+### 7.1 重要ポリシー
+
+- 認証情報そのものは設定ファイルへ書かない。
+- 設定ファイルには `*_env` 形式で環境変数名のみを記載する。
+- `obsflow validate` は必須の `*_env` キーの存在を検証する。
+
+### 7.2 設定例
 
 ```yaml
 version: 1
@@ -125,6 +139,9 @@ defaults:
   state:
     driver: "sqlite"
     dsn: "./state.db"
+  auth:
+    x_bearer_token_env: "X_BEARER_TOKEN"
+    ai_api_key_env: "AI_API_KEY"
   alert:
     slack_webhook_env: "SLACK_WEBHOOK_URL"
 
@@ -152,29 +169,57 @@ sources:
         schedule: "0 * * * *"
 
 jobs:
-  summarize:
+  - id: "summarize-main"
+    type: "summarize"
     enabled: true
     schedule: "*/15 * * * *"
-  digest:
+
+  - id: "digest-daily"
+    type: "digest"
+    cadence: "daily"
     enabled: true
-    daily: "0 22 * * *"
-    weekly: "0 21 * * 0"
+    schedule: "0 22 * * *"
+
+  - id: "digest-weekly"
+    type: "digest"
+    cadence: "weekly"
+    enabled: true
+    schedule: "0 21 * * 0"
 ```
 
-## 8. 実行シーケンス
+## 8. 実行シーケンスとスケジュール判定
 
 `tick` 実行時の標準フロー:
 
-1. 設定読込・検証
-2. 実行時刻に該当する source 収集を順次実行
-3. 収集結果を 1 レコード単位で Vault へ保存
-4. 該当時刻なら summarize を実行
-5. 該当時刻なら digest を実行
-6. 失敗があれば Alert で Slack 通知
+1. 設定読込・検証。
+2. `launchd` の起動時刻を基準に、各 `schedule` の due 判定を実施。
+3. source 収集 (RSS/X) を順次実行し、Vault へ 1 レコード単位で保存。
+4. due の summarize ジョブを実行し、対象ノートへ AI 要約を追記/更新。
+5. due の digest ジョブを実行。
+6. 失敗があれば Alert で Slack 通知。
 
 失敗が発生しても、他ターゲットが実行可能なら継続する (fail-soft)。
 
-## 9. 状態管理設計
+### 8.1 launchd と cron の関係
+
+- launchd は最小スケジュール粒度より短い間隔で `obsflow tick` を起動する (例: 5 分間隔)。
+- `tick` が `LastJobRun` と現在時刻から「今回実行すべき対象」を判定する。
+- スリープ復帰後は catch-up 判定を行い、未実行スロットを 1 回分実行する。
+
+## 9. Vault 更新仕様
+
+### 9.1 ノート作成
+
+- 保存先は source 種別ごとの固定ディレクトリ配下とする。
+- 1 ソース = 1 ノートで作成し、source item key を frontmatter に保持する。
+
+### 9.2 AI 要約追記/更新
+
+- summarize 対象ノートに `## AI Summary` セクションを持たせる。
+- セクションが未作成なら追加、既存なら同セクションのみ置換更新する。
+- raw 本文セクションは上書きしない。
+
+## 10. 状態管理設計
 
 状態管理は以下のために必須:
 
@@ -183,43 +228,64 @@ jobs:
 - 失敗復旧
 - 定期処理の整合
 
-### 9.1 repository interface
+### 10.1 repository interface
 
 ```go
 type StateRepository interface {
     GetCheckpoint(ctx context.Context, sourceID string) (Checkpoint, error)
     PutCheckpoint(ctx context.Context, cp Checkpoint) error
 
-    Seen(ctx context.Context, contentHash string) (bool, error)
-    MarkSeen(ctx context.Context, contentHash string, meta SeenMeta) error
+    SeenSourceItem(ctx context.Context, sourceID string, itemKey string) (bool, error)
+    MarkSourceItemSeen(ctx context.Context, sourceID string, itemKey string, contentHash string) error
+
+    SeenContentHash(ctx context.Context, sourceID string, contentHash string) (bool, error)
 
     LastJobRun(ctx context.Context, jobID string) (JobRun, error)
     SaveJobRun(ctx context.Context, run JobRun) error
 
+    InTx(ctx context.Context, fn func(tx StateTx) error) error
     Close() error
 }
 ```
 
-初期実装は SQLite、将来は PostgreSQL や DynamoDB への差し替えを想定する。
+### 10.2 transaction 境界
 
-## 10. エラー通知設計
+- 単一 source の 1 アイテム処理 (`MarkSourceItemSeen` + `PutCheckpoint`) は同一トランザクションで commit する。
+- これにより、途中失敗時の checkpoint/既読状態の不整合を防ぐ。
+
+### 10.3 key/hash 生成規則
+
+- X:
+  - source item key: tweet ID
+  - content hash: 正規化済み本文 + 展開 URL + author ID
+- RSS:
+  - source item key: `guid` 優先、なければ `link`、最後に `title + published_at`
+  - content hash: 正規化済み title + summary/content + canonical URL
+
+## 11. エラー通知とリトライ
 
 - 通知トリガー: 例外または非ゼロ終了相当の失敗
 - 通知先: Slack Webhook
 - 通知粒度: 失敗の都度
-- 通知内容 (最小):
-  - timestamp
-  - target/source id
-  - error summary
-  - retry hint (可能なら)
+- 同一 tick 内で同一原因の失敗が重複した場合は 1 通に集約する
 
-## 11. ローカル運用 (launchd)
+通知内容 (最小):
+- timestamp
+- target/source id
+- error summary
+- retry hint (可能なら)
+
+リトライ方針:
+- 同一 tick 内では自動リトライしない (処理を単純化する)。
+- 再試行は次回 tick に委譲する。
+
+## 12. ローカル運用 (launchd)
 
 - launchd は一定間隔で `obsflow tick --config ...` を呼ぶ。
-- スリープ復帰後の取りこぼしを避けるため、source 実装側で増分窓を持たせる。
-- ログは標準出力/標準エラーへ出し、launchd 側でファイル化する。
+- 推奨間隔は 5 分 (最短 schedule の上限に合わせて調整)。
+- ログは JSON 1 行形式を標準出力/標準エラーへ出し、launchd 側でファイル化する。
 
-## 12. 非ゴール / 将来拡張
+## 13. 非ゴール / 将来拡張
 
 本フェーズで扱わない事項:
 
