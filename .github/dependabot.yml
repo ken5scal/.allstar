@@ -7,6 +7,10 @@ updates:
       day: "monday"
       time: "03:00"
       timezone: "Asia/Tokyo"
+    cooldown:
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
     open-pull-requests-limit: 10
 
   - package-ecosystem: "github-actions"
@@ -16,4 +20,8 @@ updates:
       day: "monday"
       time: "03:30"
       timezone: "Asia/Tokyo"
+    cooldown:
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
     open-pull-requests-limit: 10
