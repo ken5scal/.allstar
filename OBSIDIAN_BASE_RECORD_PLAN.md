@@ -111,11 +111,9 @@ records:
   date_source: "captured_at"
   source_groups:
     rss: "rss"
-    x-search: "sns"
-    x-list: "sns"
-    x-bookmarks: "sns"
-    manual-web: "web"
-    manual-youtube: "web"
+    x: "sns"
+    web: "web"
+    youtube: "youtube"
 ```
 
 例:
@@ -124,9 +122,10 @@ records:
 <vault>/src/rss/hn/2026/05/05/example-title.md
 <vault>/src/sns/my-bookmarks/2026/05/05/post-123.md
 <vault>/src/web/clipper/2026/05/05/example-title.md
+<vault>/src/youtube/my-channel/2026/05/05/example-video.md
 ```
 
-`source_group` は `rss`, `sns`, `web`, `blog` などの大まかな取得タイプまたはカテゴリを表す。初期実装では `source_type` から default を導出し、必要なら source 単位で override できるようにする。`source_id` は取得設定上の識別子をそのまま使う。
+`source_group` は `rss`, `sns`, `web`, `youtube` などの大まかな取得タイプまたはカテゴリを表す。`source_groups` のキーは raw な `source_type` ではなく正規化した取得 family とし、`x-search` / `x-list` / `x-bookmarks` はすべて `x` family として `sns` にまとめる。Web 取得は `web: "web"`、YouTube 取得は `youtube: "youtube"` として扱う。`source_id` は取得設定上の識別子をそのまま使う。
 
 日付ディレクトリは初期値として `captured_at` を推奨する。理由は、Vault への投入日でまとまるため再処理・バックアップ・「今日取り込んだもの」の確認が安定するため。公開日時は `published_at` property として別に保持し、Base の sort/filter で使う。公開日時順のフォルダ整理を強く優先する場合だけ、`date_source: "published_at_or_captured_at"` に切り替える。
 
@@ -177,7 +176,7 @@ bases:
 | --- | --- |
 | `record_kind` | Base フィルタ用の固定値。例: `obsflow-record` |
 | `base_ids` | どの Base に表示対象とするか。複数 Base 対応 |
-| `source_group` | `src/{取得タイプまたはカテゴリ}/...` と対応する正規化値。例: `rss`, `sns`, `web`, `blog` |
+| `source_group` | `src/{取得タイプまたはカテゴリ}/...` と対応する正規化値。例: `rss`, `sns`, `web`, `youtube` |
 | `origin` | 取得元の補助表示名。必要なら `source_id` や domain から導出 |
 | `published_at` | コンテンツの公開日時。取得元から得られる場合のみ設定 |
 | `captured_at` | 収集・保存時刻。`created_at` を公開日時に使う場合の実保存時刻 |
@@ -376,7 +375,7 @@ bases:
 
 1. Base への「登録」は、Base ファイルに row を書くのではなく、レコードページの frontmatter を Base filter で拾わせる方式でよいか。
 2. Base ファイルは `reference`, `create_if_missing`, `managed` のどれを主運用にするか。初期 default は `create_if_missing` を推奨する。
-3. レコード保存パスは `src/{source_group}/{source_id}/YYYY/mm/dd` を基本形にしてよいか。`source_group` の語彙は `rss`, `sns`, `web`, `blog` などでよいか。
+3. レコード保存パスは `src/{source_group}/{source_id}/YYYY/mm/dd` を基本形にしてよいか。`source_group` の初期語彙は `rss`, `sns`, `web`, `youtube` とし、`x-search` / `x-list` / `x-bookmarks` はすべて `sns` にまとめる方針でよいか。
 4. 日付ディレクトリは初期 default を収集日時 (`captured_at`) とし、公開日時 (`published_at`) は property + Base sort/filter で扱う方針でよいか。
 5. Cursor SDK の custom sub-agent を必須にするか。初期は Cursor SDK local agent を基本にし、sub-agent は要約/タグ候補生成のオプションにするか。
 6. 要約・タグ付け agent は Vault を読ませる必要があるか、それとも本文を prompt payload として渡して JSON 結果だけ受け取ればよいか。
