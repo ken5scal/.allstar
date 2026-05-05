@@ -25,6 +25,16 @@ import {
 import { runDigestJob } from "./jobs/digest.js";
 import { runSummarizeJob } from "./jobs/summarize.js";
 
+const perTickLoggers = new Map<string, ReturnType<typeof createRootLogger>>();
+
+function getTickLogger(tickRunId: string) {
+  const existing = perTickLoggers.get(tickRunId);
+  if (existing) return existing;
+  const created = createRootLogger(tickRunId);
+  perTickLoggers.set(tickRunId, created);
+  return created;
+}
+
 class DedupAlert implements AlertAdapter {
   private readonly inner: AlertAdapter;
   private readonly map = new Map<string, FailureReport>();
@@ -69,6 +79,12 @@ type ManualJobResult = {
   error?: string;
 };
 
+type JobOutcomeTotals = {
+  total: number;
+  success: number;
+  failed: number;
+};
+
 function printManualSummary(args: {
   tickRunId: string;
   results: ManualJobResult[];
@@ -110,6 +126,22 @@ async function saveJob(
   run: JobRun,
 ): Promise<void> {
   await state.saveJobRun(run);
+  const logger = getTickLogger(run.tick_run_id);
+  const payload = {
+    msg: "job_run_status",
+    job_run_id: run.job_run_id,
+    job_id: run.job_id,
+    source_id: run.source_id,
+    status: run.status,
+    started_at: run.started_at,
+    finished_at: run.finished_at,
+    error_message: run.error_message,
+  };
+  if (run.status === "failed") {
+    logger.error(payload);
+    return;
+  }
+  logger.info(payload);
 }
 
 export async function runValidate(
@@ -150,6 +182,7 @@ async function runOrchestration(
   const log = createRootLogger(tickRunId);
   const failures: FailureReport[] = [];
   const manualResults: ManualJobResult[] = [];
+  const outcomeTotals: JobOutcomeTotals = { total: 0, success: 0, failed: 0 };
   const configBaseDir = path.dirname(path.resolve(cwd, configPath));
 
   let cfg: ObsflowConfig;
@@ -271,6 +304,8 @@ async function runOrchestration(
             skipped: result.skipped,
           });
         }
+        outcomeTotals.total += 1;
+        outcomeTotals.success += 1;
         await saveJob(state, {
           job_run_id: jr,
           tick_run_id: tickRunId,
@@ -290,6 +325,8 @@ async function runOrchestration(
             error: msg,
           });
         }
+        outcomeTotals.total += 1;
+        outcomeTotals.failed += 1;
         failures.push({
           severity: 2,
           target: jobId,
@@ -353,6 +390,8 @@ async function runOrchestration(
             skipped: result.skipped,
           });
         }
+        outcomeTotals.total += 1;
+        outcomeTotals.success += 1;
         await saveJob(state, {
           job_run_id: jr,
           tick_run_id: tickRunId,
@@ -372,6 +411,8 @@ async function runOrchestration(
             error: msg,
           });
         }
+        outcomeTotals.total += 1;
+        outcomeTotals.failed += 1;
         failures.push({
           severity: 2,
           target: jobId,
@@ -435,6 +476,8 @@ async function runOrchestration(
             skipped: result.skipped,
           });
         }
+        outcomeTotals.total += 1;
+        outcomeTotals.success += 1;
         await saveJob(state, {
           job_run_id: jr,
           tick_run_id: tickRunId,
@@ -454,6 +497,8 @@ async function runOrchestration(
             error: msg,
           });
         }
+        outcomeTotals.total += 1;
+        outcomeTotals.failed += 1;
         failures.push({
           severity: 2,
           target: jobId,
@@ -517,6 +562,8 @@ async function runOrchestration(
             skipped: result.skipped,
           });
         }
+        outcomeTotals.total += 1;
+        outcomeTotals.success += 1;
         await saveJob(state, {
           job_run_id: jr,
           tick_run_id: tickRunId,
@@ -536,6 +583,8 @@ async function runOrchestration(
             error: msg,
           });
         }
+        outcomeTotals.total += 1;
+        outcomeTotals.failed += 1;
         failures.push({
           severity: 2,
           target: jobId,
@@ -583,6 +632,8 @@ async function runOrchestration(
           if (mode.mode === "manual") {
             manualResults.push({ jobId: job.id, status: "success" });
           }
+          outcomeTotals.total += 1;
+          outcomeTotals.success += 1;
           await saveJob(state, {
             job_run_id: jr,
             tick_run_id: tickRunId,
@@ -596,6 +647,8 @@ async function runOrchestration(
           if (mode.mode === "manual") {
             manualResults.push({ jobId: job.id, status: "failed", error: msg });
           }
+          outcomeTotals.total += 1;
+          outcomeTotals.failed += 1;
           failures.push({
             severity: 3,
             target: job.id,
@@ -656,6 +709,8 @@ async function runOrchestration(
         if (mode.mode === "manual") {
           manualResults.push({ jobId, status: "success" });
         }
+        outcomeTotals.total += 1;
+        outcomeTotals.success += 1;
         await saveJob(state, {
           job_run_id: jr,
           tick_run_id: tickRunId,
@@ -669,6 +724,8 @@ async function runOrchestration(
         if (mode.mode === "manual") {
           manualResults.push({ jobId, status: "failed", error: msg });
         }
+        outcomeTotals.total += 1;
+        outcomeTotals.failed += 1;
         failures.push({
           severity: 3,
           target: jobId,
@@ -703,7 +760,14 @@ async function runOrchestration(
         failures: failures.length,
       });
     }
-    log.info({ msg: "tick_done", exit: code, failures: failures.length });
+    log.info({
+      msg: "tick_done",
+      exit: code,
+      failures: failures.length,
+      total: outcomeTotals.total,
+      success: outcomeTotals.success,
+      failed: outcomeTotals.failed,
+    });
     return code;
   } catch (e) {
     log.error({ err: e, msg: "orchestration_error" });
@@ -712,5 +776,6 @@ async function runOrchestration(
   } finally {
     state.releaseTickLock(tickRunId);
     await state.close();
+    perTickLoggers.delete(tickRunId);
   }
 }

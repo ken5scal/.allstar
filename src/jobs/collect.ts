@@ -1,6 +1,5 @@
 import path from "node:path";
 
-import { newId } from "../ids.js";
 import { safeNoteBasename, vaultSubdirForSource } from "../paths.js";
 import type { ObsflowConfig, SourceItem, VaultRecord } from "../types.js";
 import { createRssMockAdapter } from "../adapters/rss-mock.js";
@@ -19,15 +18,13 @@ export function itemToVaultRecord(
 ): VaultRecord {
   const now = new Date().toISOString();
   return {
-    record_id: newId(),
     schema_version: 1,
-    source: item.source,
-    source_item_key: item.source_item_key,
-    content_hash: item.content_hash,
+    source_type: item.source,
+    source: item.canonicalUrl ?? item.source_item_key,
+    source_id: item.sourceId,
+    title: item.title,
     status: "captured",
-    ai_drafted: false,
     tags: [],
-    intent: [],
     attachments: [],
     summary: "",
     created_at: item.publishedAt ?? now,

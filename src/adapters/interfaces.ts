@@ -49,7 +49,7 @@ export interface VaultAdapter {
   updateAiSummary(
     noteRelPath: string,
     aiSummaryMarkdown: string,
-    patch: Partial<Pick<VaultRecord, "summary" | "status" | "ai_drafted" | "updated_at" | "tags" | "category">>,
+    patch: Partial<Pick<VaultRecord, "summary" | "status" | "updated_at" | "tags" | "category">>,
   ): Promise<void>;
   listNotePathsUnder(prefix: string): Promise<string[]>;
   readRecord(noteRelPath: string): Promise<VaultRecord | null>;

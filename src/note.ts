@@ -8,15 +8,11 @@ export const AI_SECTION = "## AI Summary";
 
 export function renderVaultNote(r: VaultRecord): string {
   const fm: Record<string, unknown> = {
-    record_id: r.record_id,
     schema_version: r.schema_version,
+    source_type: r.source_type,
     source: r.source,
-    source_item_key: r.source_item_key,
-    content_hash: r.content_hash,
     status: r.status,
-    ai_drafted: r.ai_drafted,
     tags: r.tags,
-    intent: r.intent,
     attachments: r.attachments,
     summary: r.summary,
     created_at: r.created_at,
@@ -24,6 +20,8 @@ export function renderVaultNote(r: VaultRecord): string {
     tick_run_id: r.tick_run_id,
     job_run_id: r.job_run_id,
   };
+  if (r.source_id !== undefined) fm.source_id = r.source_id;
+  if (r.title !== undefined) fm.title = r.title;
   if (r.category !== undefined) fm.category = r.category;
   const body = [
     "",
@@ -64,18 +62,20 @@ export function parseVaultNote(markdown: string): VaultRecord | null {
   const aiRe = /## AI Summary\s*\n([\s\S]*?)(?=\n## |\s*$)/;
   const rawM = body.match(rawRe);
   const aiM = body.match(aiRe);
+  const opt = (v: unknown): string | undefined => {
+    const s = stringFromUnknown(v);
+    return s.length > 0 ? s : undefined;
+  };
   return {
-    record_id: stringFromUnknown(fm.record_id),
     schema_version: Number(fm.schema_version ?? 1),
-    source: fm.source as VaultRecord["source"],
-    source_item_key: stringFromUnknown(fm.source_item_key),
-    content_hash: stringFromUnknown(fm.content_hash),
+    source_type: (fm.source_type ?? fm.source) as VaultRecord["source_type"],
+    source: stringFromUnknown(fm.source),
+    source_id: opt(fm.source_id),
+    title: opt(fm.title),
     status: fm.status as VaultRecord["status"],
-    ai_drafted: Boolean(fm.ai_drafted),
     category:
       fm.category !== undefined ? stringFromUnknown(fm.category) : undefined,
     tags: Array.isArray(fm.tags) ? (fm.tags as string[]) : [],
-    intent: Array.isArray(fm.intent) ? (fm.intent as string[]) : [],
     attachments: Array.isArray(fm.attachments)
       ? (fm.attachments as VaultRecord["attachments"])
       : [],

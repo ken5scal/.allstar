@@ -8,7 +8,7 @@ export function createAiMockAdapter(): AiAdapter {
       const body = record.rawContent.trim();
       return {
         short_summary: head ? `${head.replace(/\s+/g, " ")}…` : "(empty)",
-        summary: `Mock summary for ${record.source_item_key}:\n\n${body}`,
+        summary: `Mock summary for ${record.title ?? record.source}:\n\n${body}`,
       };
     },
   };

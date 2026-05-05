@@ -157,16 +157,14 @@ export interface SourceItem {
 
 /** Frontmatter + body sections for a vault note. */
 export interface VaultRecord {
-  record_id: string;
   schema_version: number;
-  source: ObsidianSourceKind;
-  source_item_key: string;
-  content_hash: string;
+  source_type: ObsidianSourceKind;
+  source: string;
+  source_id?: string;
+  title?: string;
   status: "captured" | "summarized" | "failed";
-  ai_drafted: boolean;
   category?: string;
   tags: string[];
-  intent: string[];
   attachments: Array<{ name: string; path: string }>;
   summary: string;
   created_at: string;

@@ -21,11 +21,10 @@ export async function runSummarizeJob(args: {
     for (const rel of paths) {
       const rec = await args.vault.readRecord(rel);
       if (!rec) continue;
-      if (rec.status !== "captured" || rec.ai_drafted) continue;
+      if (rec.status !== "captured") continue;
       const out = await args.ai.summarize(rec);
       await args.vault.updateAiSummary(rel, out.summary, {
         status: "summarized",
-        ai_drafted: true,
         summary: out.short_summary ?? out.summary.slice(0, 500),
         updated_at: new Date().toISOString(),
       });

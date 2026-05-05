@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { newId } from "../ids.js";
 import { ensureDir } from "../paths.js";
 import type { VaultAdapter } from "../adapters/interfaces.js";
 import type { DigestCadence, ObsflowConfig } from "../types.js";
@@ -36,7 +35,7 @@ export async function runDigestJob(args: {
       if (!rec) continue;
       const created = new Date(rec.created_at);
       if (created >= since) {
-        lines.push(`- [[${rel.replace(/\.md$/, "")}]] — ${rec.source} ${rec.source_item_key}`);
+        lines.push(`- [[${rel.replace(/\.md$/, "")}]] — ${rec.source_type} ${rec.title ?? rec.source}`);
       }
     }
   }
@@ -45,17 +44,15 @@ export async function runDigestJob(args: {
   const relOut = path.join("Digests", fname);
   const full = path.join(args.cfg.defaults.vault_path, relOut);
   ensureDir(path.dirname(full));
+  const digestSource = `obsflow://digest/${args.job.cadence}/${fname}`;
   const body = [
     "---",
-    `record_id: "${newId()}"`,
     "schema_version: 1",
-    `source: "manual-web"`,
-    `source_item_key: "${args.job.id}-${fname}"`,
-    `content_hash: "digest:${args.job.cadence}:${fname}"`,
+    `source_type: "manual-web"`,
+    `source: "${digestSource}"`,
+    `title: "Digest (${args.job.cadence})"`,
     'status: "captured"',
-    "ai_drafted: false",
     "tags: []",
-    "intent: []",
     "attachments: []",
     'summary: ""',
     `created_at: "${now.toISOString()}"`,
