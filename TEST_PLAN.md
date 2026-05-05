@@ -2,6 +2,7 @@
 
 ## 基本方針
 
+- 実行・CI の Node は **24**（`package.json` `engines` / GitHub Actions と一致）。
 - 既定テストは外部ネットワークなし（RSS mock / X mock / Vault mock）。
 - 実API・Slack・Cursor Agent は手動または `OBSFLOW_*` / 契約テストで明示有効化する。
 - `OBSFLOW_SKIP_TICK_LOCK=1` でテスト並列・ローカル実行時の tick ロックを無効化できる。
@@ -29,6 +30,7 @@
 | failure-path | `npm run test:failure-path` |
 | 全部 | `OBSFLOW_SKIP_TICK_LOCK=1 npm test` |
 | typecheck | `npm run typecheck` |
+| lint | `npm run lint` |
 | build | `npm run build` |
 | validate | `npm run obsflow -- validate --config test/fixtures/config.mock.yaml` |
 | tick | `OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- tick --config test/fixtures/config.mock.yaml` |

@@ -11,8 +11,11 @@
 
 Personal RSS / X ingest pipeline with SQLite state, optional Cursor SDK vault agent, and Slack alerts.
 
+**Prerequisite:** Node.js 24 or later (see `engines` in `package.json` and [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)).
+
 ```bash
 npm install
+npm run lint
 npm run build
 npm run obsflow -- validate --config test/fixtures/config.mock.yaml
 OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- tick --config test/fixtures/config.mock.yaml

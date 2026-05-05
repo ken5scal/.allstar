@@ -32,17 +32,14 @@ export function sourceItemsFromFeedXml(
           : it.link && typeof it.link === "object" && "href" in it.link
             ? String((it.link as { href?: string }).href)
             : undefined;
-      const title = pickText(it.title as string | undefined);
+      const title = pickText(it.title);
       const pub =
         it.pubDate !== undefined
           ? String(it.pubDate)
           : it.dc?.date !== undefined
             ? String(it.dc.date)
             : undefined;
-      const desc = pickText(
-        it.description as string | undefined,
-        it.content?.encoded as string | undefined,
-      );
+      const desc = pickText(it.description, it.content?.encoded);
       const itemKey =
         guid?.trim() || link?.trim() || `${title}\t${pub ?? ""}\t${idx}`;
       const canonical = link?.trim() ?? itemKey;
@@ -67,7 +64,7 @@ export function sourceItemsFromFeedXml(
     const entries = parsed.feed.entries ?? [];
     return entries.map((ent, idx) => {
       const id = String(ent.id ?? "");
-      const title = pickText(ent.title as string | undefined);
+      const title = pickText(ent.title);
       const link =
         ent.links?.find((l) => l.rel === "alternate" || !l.rel)?.href ??
         ent.links?.[0]?.href;
@@ -79,10 +76,7 @@ export function sourceItemsFromFeedXml(
               "value" in ent.content
             ? String((ent.content as { value?: string }).value)
             : undefined;
-      const summary = pickText(
-        ent.summary as string | undefined,
-        contentVal,
-      );
+      const summary = pickText(ent.summary, contentVal);
       const updated = ent.updated !== undefined ? String(ent.updated) : undefined;
       const itemKey = id.trim() || link?.trim() || `${title}\t${updated ?? ""}\t${idx}`;
       const canonical = link?.trim() ?? itemKey;

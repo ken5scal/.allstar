@@ -1,6 +1,7 @@
 import { Client } from "@xdevplatform/xdk";
 
 import { xContentHash } from "../hash.js";
+import { stringFromUnknown } from "../string-utils.js";
 import type { ObsidianSourceKind, SourceItem } from "../types.js";
 import type { XCollectorAdapter } from "./interfaces.js";
 
@@ -17,7 +18,10 @@ function urlsFromTweet(t: Record<string, unknown>): string[] {
   const urls = ent?.urls as Array<Record<string, unknown>> | undefined;
   if (!Array.isArray(urls)) return [];
   return urls
-    .map((u) => String(u.expanded_url ?? u.url ?? ""))
+    .map(
+      (u) =>
+        stringFromUnknown(u.expanded_url) || stringFromUnknown(u.url) || "",
+    )
     .filter(Boolean);
 }
 
@@ -26,14 +30,15 @@ function tweetToItem(
   source: ObsidianSourceKind,
   sourceId: string,
 ): SourceItem {
-  const id = String(t.id ?? "");
-  const text = String(t.text ?? "");
+  const id = stringFromUnknown(t.id);
+  const text = stringFromUnknown(t.text);
   const authorId = String(
     (t.author_id as string) ??
       ((t.author as Record<string, unknown> | undefined)?.id as string) ??
       "",
   );
-  const created = t.created_at ? String(t.created_at) : undefined;
+  const createdRaw = stringFromUnknown(t.created_at);
+  const created = createdRaw || undefined;
   const urls = urlsFromTweet(t);
   const hash = xContentHash({ text, urls, authorId });
   return {

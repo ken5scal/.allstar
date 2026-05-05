@@ -12,7 +12,8 @@
     "start": "node dist/main.js",
     "obsflow": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:unit": "vitest run test/unit",
     "test:integration": "vitest run test/integration",
@@ -35,10 +36,13 @@
     "yaml": "^2.7.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.0",
+    "eslint": "^10.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
+    "typescript-eslint": "^8.59.2",
     "vitest": "^3.0.0"
   }
 }
