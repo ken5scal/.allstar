@@ -1,6 +1,6 @@
 # 個人向け情報収集・要約パイプライン: 詳細設計
 
-最終更新: 2026-05-04
+最終更新: 2026-05-05
 
 ## 1. 目的
 
@@ -20,7 +20,7 @@
 ## 3. 技術スタック
 
 - 言語: TypeScript
-- 実行環境: Node.js 20+
+- 実行環境: Node.js 24+（`package.json` の `engines` に準拠）
 - エージェント実行: `@cursor/sdk`
 - CLI: `commander` (または同等の標準的 CLI ライブラリ)
 - 設定ファイル: YAML (`yaml`)
@@ -75,14 +75,17 @@ test/
 ## 5. レイヤー責務
 
 ### 5.1 handler 層
+
 - CLI の引数解釈と入出力制御を担当。
 - ビジネスロジックは持たず、service 層を呼ぶ。
 
 ### 5.2 service 層
+
 - ユースケース単位の処理フローを担当。
 - repository interface に依存し、実装詳細には依存しない。
 
 ### 5.3 repository 層
+
 - 外部 I/O を担当 (X SDK、RSS、Vault、AI、Slack、状態 DB)。
 - 永続化や API 呼び出しをカプセル化する。
 
@@ -97,8 +100,9 @@ test/
 
 - `obsflow tick --config <path>`
   - 定期実行用の主コマンド。設定に基づいて実行対象を判定する。
-- `obsflow run --config <path> --targets <csv>`
-  - 手動実行用。`targets` で明示した処理のみ実行する。
+- `obsflow run --config <path> [--targets <csv>]`
+  - 手動実行用。`--targets` 未指定時は有効な処理をすべて実行する。
+  - `--targets` 指定時は明示した処理のみ実行する。
 - `obsflow validate --config <path>`
   - 設定ファイル検証のみを行う。
 
@@ -106,7 +110,7 @@ test/
 
 ### 6.2 `targets` の値
 
-`run` で指定可能なターゲット:
+`run --targets` で指定可能なターゲット:
 
 - `collect-rss`
 - `collect-x-search`
@@ -149,6 +153,8 @@ timezone: "Asia/Tokyo"
 
 defaults:
   vault_path: "/Users/you/ObsidianVault"
+  # 任意: Vault 内の保存先サブフォルダを指定 (例: /Users/you/ObsidianVault/ObsFlow)
+  vault_folder: "ObsFlow"
   state:
     driver: "sqlite"
     dsn: "./state.db"
@@ -356,6 +362,8 @@ export interface StateRepository {
 
 ### 10.3 key/hash 生成規則
 
+`source_item_key` と `content_hash` は重複防止と checkpoint 更新のための内部状態キーであり、Obsidian frontmatter には保存しない。
+
 - X:
   - source item key: post ID
   - content hash: 正規化済み本文 + 展開 URL + author ID
@@ -371,6 +379,17 @@ export interface StateRepository {
   - `tick_run_id`: `obsflow tick` 1 回の実行単位 ID
   - `job_run_id`: 各ジョブ実行単位 ID
 - `job_runs` には `job_run_id` と `tick_run_id` の両方を保存し、親子関係を追跡可能にする。
+- Obsidian ノート自体には `record_id` を持たせず、Vault 内のファイルパスと `source` URL を識別子として扱う。
+
+### 10.5 `tick_run_id` / `job_run_id` の親子関係
+
+- `tick_run_id` は orchestration 全体 (`obsflow tick` 1 回) の親 ID。
+- `job_run_id` は個々のジョブ実行 (`collect-rss:*`, `collect-x-*`, `summarize`, `digest`) の子 ID。
+- 1 つの tick で due 判定されたジョブ数だけ `job_run_id` が発行される。
+- 例:
+  - `tick_run_id = t-001`
+  - `job_run_id = j-collect-rss-1`, `j-summarize-1`, `j-digest-daily-1`
+- これにより「同一 tick 内でどのジョブが成功/失敗したか」をトレース可能にする。
 
 ## 11. エラー通知とリトライ
 
@@ -380,6 +399,7 @@ export interface StateRepository {
 - 同一 tick 内で同一原因の失敗が重複した場合は 1 通に集約する
 
 通知内容 (最小):
+
 - timestamp
 - target/source id
 - error summary
@@ -387,6 +407,7 @@ export interface StateRepository {
 - `job_run_id` (該当時)
 
 リトライ方針:
+
 - 同一 tick 内では自動リトライしない (処理を単純化する)。
 - 再試行は次回 tick に委譲する。
 
@@ -396,7 +417,7 @@ export interface StateRepository {
 - 推奨間隔は 5 分 (最短 schedule の上限に合わせて調整)。
 - ログは JSON 1 行形式を標準出力/標準エラーへ出し、launchd 側でファイル化する。
 - すべてのログイベントに `tick_run_id` を含める。
-- ジョブ単位ログには `job_run_id`, `job_id`, `source_id` (該当時) を追加する。
+- ジョブ開始/終了ログ（`running`/`success`/`failed`）には `job_run_id`, `tick_run_id`, `job_id`, `source_id` (該当時) を必ず含める。
 
 ## 13. 非ゴール / 将来拡張
 

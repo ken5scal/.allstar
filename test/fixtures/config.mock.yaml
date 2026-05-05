@@ -1,0 +1,49 @@
+version: 1
+timezone: "UTC"
+
+defaults:
+  vault_path: "./test-output-vault"
+  vault_provider: "mock"
+  timezone: "UTC"
+  rss_provider: "mock"
+  state:
+    driver: "sqlite"
+    dsn: "./test-output-mock.sqlite"
+  auth:
+    cursor_api_key_env: "CURSOR_API_KEY"
+    x_bearer_token_env: "X_BEARER_TOKEN"
+    x_oauth2_access_token_env: "X_OAUTH2_ACCESS_TOKEN"
+  alert:
+    provider: "mock"
+
+sources:
+  rss:
+    - id: "sample"
+      enabled: true
+      schedule: "*/30 * * * *"
+      fixture: "./test/fixtures/rss/sample.xml"
+
+  x:
+    provider: "mock"
+    search:
+      - id: "ai"
+        enabled: true
+        schedule: "*/15 * * * *"
+        query: "test"
+    lists: []
+    bookmarks: []
+
+ai:
+  provider: "mock"
+
+jobs:
+  - id: "summarize-main"
+    type: "summarize"
+    enabled: true
+    schedule: "*/15 * * * *"
+
+  - id: "digest-daily"
+    type: "digest"
+    cadence: "daily"
+    enabled: true
+    schedule: "0 22 * * *"

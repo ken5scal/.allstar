@@ -1,0 +1,48 @@
+{
+  "name": "obsflow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal RSS/X → Obsidian pipeline (obsflow)",
+  "bin": {
+    "obsflow": "./dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "obsflow": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:unit": "vitest run test/unit",
+    "test:integration": "vitest run test/integration",
+    "test:contract-fixture": "vitest run test/contract-fixture",
+    "test:idempotency": "vitest run test/idempotency",
+    "test:failure-path": "vitest run test/failure-path",
+    "smoke": "tsx src/main.ts tick --config test/fixtures/config.mock.yaml"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@cursor/sdk": "^1.0.12",
+    "@xdevplatform/xdk": "^0.5.0",
+    "better-sqlite3": "^12.9.0",
+    "commander": "^13.0.0",
+    "cron-parser": "^5.0.0",
+    "feedsmith": "^2.9.4",
+    "pino": "^9.6.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "eslint": "^10.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.59.2",
+    "vitest": "^3.0.0"
+  }
+}

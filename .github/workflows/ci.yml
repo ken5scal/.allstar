@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["24"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Cache node_modules
+        id: cache-node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ matrix.node-version }}-modules-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Spec-level verification via Vitest (unit/integration/failure-path assertions).
+      - name: Test
+        env:
+          OBSFLOW_SKIP_TICK_LOCK: "1"
+        run: npm test
+
+      # Runtime smoke for manual CLI path: ensures `run --targets collect-rss` executes end-to-end.
+      - name: Manual run smoke (RSS target)
+        env:
+          OBSFLOW_SKIP_TICK_LOCK: "1"
+        run: npm run obsflow -- run --config test/fixtures/config.run.mock.yaml --targets collect-rss
+
+      # Runtime smoke for manual CLI path with targets omitted (runs all enabled jobs).
+      - name: Manual run smoke (all enabled jobs)
+        env:
+          OBSFLOW_SKIP_TICK_LOCK: "1"
+        run: npm run obsflow -- run --config test/fixtures/config.run.mock.yaml
+
+      - name: Build
+        run: npm run build

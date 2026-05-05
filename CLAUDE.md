@@ -50,7 +50,7 @@ Skills are located in `.claude/skills/kiro-*/SKILL.md`
 - **If there is even a 1% chance a skill applies to the current task, invoke it.** Do not skip skills because the task seems simple.
 
 ## Development Rules
-- 3-phase approval workflow: Requirements → Design → Tasks → Implementation
+- 3-phase approval workflow: Requirements → Design → Tasks → Test Cases(Should Fail) → Implementation  → Test and fix Until Succeed
 - Human review required each phase; use `-y` only for intentional fast-track
 - Keep steering current and verify alignment with `/kiro-spec-status`
 - Follow the user's instructions precisely, and within that scope act autonomously: gather the necessary context and complete the requested work end-to-end in this run, asking questions only when essential information is missing or the instructions are critically ambiguous.

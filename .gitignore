@@ -1,0 +1,11 @@
+.env
+node_modules/
+dist/
+*.db
+*.db-journal
+coverage/
+.DS_Store
+test-output-vault/
+test-output-mock.sqlite
+test/work/
+.obsflow/

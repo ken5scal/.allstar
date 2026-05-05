@@ -8,7 +8,7 @@
 
 - **Language**: [e.g., TypeScript, Python]
 - **Framework**: [e.g., React, Next.js, Django]
-- **Runtime**: [e.g., Node.js 20+]
+- **Runtime**: [e.g., Node.js 24+]
 
 ## Key Libraries
 
