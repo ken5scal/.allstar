@@ -3,6 +3,9 @@ name: RSS E2E
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
   workflow_dispatch:
   schedule:
     # Nightly at 03:00 JST (18:00 UTC).
