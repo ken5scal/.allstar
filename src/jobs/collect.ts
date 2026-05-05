@@ -1,7 +1,6 @@
-import path from "node:path";
-
-import { safeNoteBasename, vaultSubdirForSource } from "../paths.js";
 import type { ObsflowConfig, SourceItem, VaultRecord } from "../types.js";
+import { OBSFLOW_RECORD_KIND } from "../types.js";
+import { recordNoteRelPath, sourceFamily } from "../paths.js";
 import { createRssMockAdapter } from "../adapters/rss-mock.js";
 import { fetchRssItems } from "../adapters/feedsmith.js";
 import type {
@@ -11,23 +10,56 @@ import type {
   XCollectorAdapter,
 } from "../adapters/interfaces.js";
 
+function originFromItem(item: SourceItem): string | undefined {
+  if (item.canonicalUrl) {
+    try {
+      return new URL(item.canonicalUrl).hostname;
+    } catch {
+      /* ignore */
+    }
+  }
+  return item.sourceId;
+}
+
 export function itemToVaultRecord(
   item: SourceItem,
   tickRunId: string,
   jobRunId: string,
+  cfg: ObsflowConfig,
+  capturedAt: Date,
 ): VaultRecord {
-  const now = new Date().toISOString();
+  const nowIso = capturedAt.toISOString();
+  const publishedIso =
+    item.publishedAt && !Number.isNaN(new Date(item.publishedAt).getTime()) ?
+      new Date(item.publishedAt).toISOString()
+    : undefined;
+  const family = sourceFamily(item.source);
+  const sourceGroup = cfg.records.source_groups[family];
+  if (sourceGroup === undefined) {
+    throw new Error(
+      `records.source_groups["${family}"] missing (source_type ${item.source})`,
+    );
+  }
+  const base_ids = cfg.bases.map((b) => b.id);
+
   return {
     schema_version: 1,
+    record_kind: OBSFLOW_RECORD_KIND,
+    base_ids,
     source_type: item.source,
     source: item.canonicalUrl ?? item.source_item_key,
     source_id: item.sourceId,
+    source_group: sourceGroup,
+    origin: originFromItem(item),
     status: "captured",
     tags: [],
     attachments: [],
     summary: "",
-    created_at: item.publishedAt ?? now,
-    updated_at: now,
+    published_at: publishedIso,
+    captured_at: nowIso,
+    // Record creation time in the vault (not source publish time).
+    created_at: nowIso,
+    updated_at: nowIso,
     tick_run_id: tickRunId,
     job_run_id: jobRunId,
     rawContent: item.rawText,
@@ -35,14 +67,8 @@ export function itemToVaultRecord(
   };
 }
 
-export function noteRelPathForItem(item: SourceItem): string {
-  const dir = vaultSubdirForSource(item.source);
-  const readable = item.title || item.source_item_key;
-  const base = safeNoteBasename(`${readable} - ${item.sourceId}`);
-  return path.join(dir, `${base}.md`);
-}
-
 async function processNewItems(args: {
+  cfg: ObsflowConfig;
   items: SourceItem[];
   checkpointSourceId: string;
   state: StateRepository;
@@ -67,8 +93,15 @@ async function processNewItems(args: {
       skipped += 1;
       continue;
     }
-    const rec = itemToVaultRecord(item, args.tickRunId, args.jobRunId);
-    const rel = noteRelPathForItem(item);
+    const capturedAt = new Date();
+    const rec = itemToVaultRecord(
+      item,
+      args.tickRunId,
+      args.jobRunId,
+      args.cfg,
+      capturedAt,
+    );
+    const rel = recordNoteRelPath(args.cfg, item, capturedAt);
     await args.vault.upsertRecord(rec, rel);
     await args.state.inTx((tx) => {
       tx.markSourceItemSeen(
@@ -113,6 +146,7 @@ export async function collectRssSource(args: {
   }
   const cpId = `rss:${args.rss.id}`;
   return processNewItems({
+    cfg: args.cfg,
     items,
     checkpointSourceId: cpId,
     state: args.state,
@@ -128,6 +162,7 @@ export async function collectRssSource(args: {
 }
 
 export async function collectXSearch(args: {
+  cfg: ObsflowConfig;
   search: ObsflowConfig["sources"]["x"]["search"][number];
   collector: XCollectorAdapter;
   state: StateRepository;
@@ -138,6 +173,7 @@ export async function collectXSearch(args: {
   const items = await args.collector.collectSearch(args.search.id, args.search.query);
   const cpId = `x-search:${args.search.id}`;
   return processNewItems({
+    cfg: args.cfg,
     items,
     checkpointSourceId: cpId,
     state: args.state,
@@ -152,6 +188,7 @@ export async function collectXSearch(args: {
 }
 
 export async function collectXList(args: {
+  cfg: ObsflowConfig;
   list: ObsflowConfig["sources"]["x"]["lists"][number];
   collector: XCollectorAdapter;
   state: StateRepository;
@@ -162,6 +199,7 @@ export async function collectXList(args: {
   const items = await args.collector.collectList(args.list.id, args.list.list_id);
   const cpId = `x-list:${args.list.id}`;
   return processNewItems({
+    cfg: args.cfg,
     items,
     checkpointSourceId: cpId,
     state: args.state,
@@ -174,6 +212,7 @@ export async function collectXList(args: {
 }
 
 export async function collectXBookmarks(args: {
+  cfg: ObsflowConfig;
   bm: ObsflowConfig["sources"]["x"]["bookmarks"][number];
   collector: XCollectorAdapter;
   state: StateRepository;
@@ -184,6 +223,7 @@ export async function collectXBookmarks(args: {
   const items = await args.collector.collectBookmarks(args.bm.id);
   const cpId = `x-bookmarks:${args.bm.id}`;
   return processNewItems({
+    cfg: args.cfg,
     items,
     checkpointSourceId: cpId,
     state: args.state,

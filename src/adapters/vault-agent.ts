@@ -4,7 +4,8 @@ import path from "node:path";
 import { Agent } from "@cursor/sdk";
 
 import { parseVaultNote, renderVaultNote, replaceAiSummarySection } from "../note.js";
-import type { VaultRecord } from "../types.js";
+import { renderBaseYaml } from "../base.js";
+import type { BaseConfig, VaultRecord } from "../types.js";
 import type { VaultAdapter } from "./interfaces.js";
 
 const MODEL_ID = "composer-2";
@@ -36,6 +37,35 @@ export function createVaultAgentAdapter(opts: {
         const result = await run.wait();
         if (result.status === "error") {
           throw new Error(`agent vault upsert failed run=${result.id}`);
+        }
+      } finally {
+        await agent[Symbol.asyncDispose]();
+      }
+    },
+    async upsertBase(base: BaseConfig): Promise<void> {
+      if (base.mode === "reference") return;
+      const full = path.join(root, base.path);
+      if (base.mode === "create_if_missing" && fs.existsSync(full)) return;
+      const agent = await Agent.create({
+        apiKey: opts.apiKey,
+        model: { id: MODEL_ID },
+        local: { cwd: root, settingSources: [] },
+      });
+      try {
+        const body = renderBaseYaml(base);
+        const prompt = [
+          "Create or replace this Obsidian Bases file using workspace-relative path.",
+          `Path: ${base.path}`,
+          "The file extension must be .base and the content must match exactly:",
+          "",
+          "```yaml",
+          body.trimEnd(),
+          "```",
+        ].join("\n");
+        const run = await agent.send(prompt);
+        const result = await run.wait();
+        if (result.status === "error") {
+          throw new Error(`agent vault base upsert failed run=${result.id}`);
         }
       } finally {
         await agent[Symbol.asyncDispose]();

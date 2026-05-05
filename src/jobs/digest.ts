@@ -21,12 +21,7 @@ export async function runDigestJob(args: {
   jobRunId: string;
 }): Promise<string> {
   const since = args.sinceIso ? new Date(args.sinceIso) : new Date(0);
-  const roots = [
-    path.join("Sources", "RSS"),
-    path.join("Sources", "X", "Search"),
-    path.join("Sources", "X", "Lists"),
-    path.join("Sources", "X", "Bookmarks"),
-  ];
+  const roots = [args.cfg.records.root_folder];
   const lines: string[] = [];
   for (const root of roots) {
     const paths = await args.vault.listNotePathsUnder(root);

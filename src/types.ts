@@ -102,6 +102,46 @@ export interface JobConfig {
   cadence?: DigestCadence;
 }
 
+/** ISO folder date segments for record paths: captured time vs published fallback. */
+export type RecordDateSource = "captured_at" | "published_at_or_captured_at";
+
+/** Where and how Markdown record notes are laid out under the vault. */
+export interface RecordsConfig {
+  /** Vault-relative root (POSIX-style segments, e.g. `src` or `Sources`). */
+  root_folder: string;
+  /** Relative path under root_folder; supports `{source_group}`, `{source_id}`, `{yyyy}`, `{mm}`, `{dd}`, `{slug}`, `{source_type}`, `{origin}`. */
+  path_template: string;
+  filename_template: string;
+  date_source: RecordDateSource;
+  /** Map source family (`rss`, `x`, `web`, `youtube`) → directory segment (e.g. `sns`). */
+  source_groups: Record<string, string>;
+}
+
+export type BaseMode = "reference" | "create_if_missing" | "managed";
+
+export interface BaseViewConfig {
+  type: "table" | "cards" | "list" | "map";
+  name: string;
+  order?: string[];
+  limit?: number;
+}
+
+/** Declarative Obsidian Base (.base) managed by obsflow. */
+export interface BaseConfig {
+  id: string;
+  /** Vault-relative path ending in `.base`. */
+  path: string;
+  mode: BaseMode;
+  /** Combined with AND when emitting the Base file. */
+  filters: string[];
+  views: BaseViewConfig[];
+  formulas?: Record<string, string>;
+  properties?: Record<string, { displayName?: string }>;
+  summaries?: Record<string, string>;
+}
+
+export const OBSFLOW_RECORD_KIND = "obsflow-record";
+
 export interface ObsflowConfig {
   version: number;
   timezone: string;
@@ -112,6 +152,8 @@ export interface ObsflowConfig {
   };
   ai: AiConfig;
   jobs: JobConfig[];
+  records: RecordsConfig;
+  bases: BaseConfig[];
 }
 
 export interface Checkpoint {
@@ -158,14 +200,26 @@ export interface SourceItem {
 /** Frontmatter + body sections for a vault note. */
 export interface VaultRecord {
   schema_version: number;
+  /** Discriminator for Obsidian Bases filters (Obsidian-native “rows”). */
+  record_kind: string;
+  /** Optional Base ids this note should associate with (for filters that use it). */
+  base_ids: string[];
   source_type: ObsidianSourceKind;
   source: string;
   source_id?: string;
+  /** Normalized group segment for paths/filters (e.g. rss, sns, web). */
+  source_group: string;
+  /** Human-friendly origin hint (e.g. hostname or source id). */
+  origin?: string;
   status: "captured" | "summarized" | "failed";
   category?: string;
   tags: string[];
   attachments: Array<{ name: string; path: string }>;
   summary: string;
+  /** Content publish time when known (ISO8601). */
+  published_at?: string;
+  /** When the record was captured into the vault (ISO8601). */
+  captured_at: string;
   created_at: string;
   updated_at: string;
   tick_run_id: string;

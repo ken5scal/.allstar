@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import type { AiAdapter, VaultAdapter } from "../adapters/interfaces.js";
 import type { ObsflowConfig } from "../types.js";
 
@@ -9,12 +7,7 @@ export async function runSummarizeJob(args: {
   ai: AiAdapter;
   jobId: string;
 }): Promise<number> {
-  const roots = [
-    path.join("Sources", "RSS"),
-    path.join("Sources", "X", "Search"),
-    path.join("Sources", "X", "Lists"),
-    path.join("Sources", "X", "Bookmarks"),
-  ];
+  const roots = [args.cfg.records.root_folder];
   let n = 0;
   for (const root of roots) {
     const paths = await args.vault.listNotePathsUnder(root);

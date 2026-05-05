@@ -9,3 +9,5 @@ test-output-vault/
 test-output-mock.sqlite
 test/work/
 .obsflow/
+test/fixtures/test-output-vault-e2e/
+test/fixtures/test-output-e2e.sqlite

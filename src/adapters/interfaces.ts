@@ -1,4 +1,5 @@
 import type {
+  BaseConfig,
   Checkpoint,
   JobRun,
   SourceItem,
@@ -46,6 +47,7 @@ export interface XCollectorAdapter {
 
 export interface VaultAdapter {
   upsertRecord(record: VaultRecord, noteRelPath: string): Promise<void>;
+  upsertBase(base: BaseConfig): Promise<void>;
   updateAiSummary(
     noteRelPath: string,
     aiSummaryMarkdown: string,

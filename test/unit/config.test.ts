@@ -7,11 +7,12 @@ import { loadConfigFile, normalizeConfig, validateConfigEnv } from "../../src/co
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.join(here, "..", "..");
+const mockCfgDir = path.join(repo, "test", "fixtures");
 
 describe("config", () => {
   it("loads mock fixture and validates env (mock providers)", () => {
     const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml"));
-    const cfg = normalizeConfig(raw, repo);
+    const cfg = normalizeConfig(raw, mockCfgDir);
     expect(cfg.sources.rss[0].id).toBe("sample");
     validateConfigEnv(cfg);
   });
@@ -23,7 +24,7 @@ describe("config", () => {
     expect(cfg.defaults.state.dsn).toBe(path.resolve(baseDir, "./test-output-mock.sqlite"));
     expect(cfg.defaults.vault_path).toBe(path.resolve(baseDir, "./test-output-vault"));
     expect(cfg.sources.rss[0].fixture).toBe(
-      path.resolve(baseDir, "./test/fixtures/rss/sample.xml"),
+      path.resolve(baseDir, "./rss/sample.xml"),
     );
   });
 
@@ -38,5 +39,37 @@ describe("config", () => {
     expect(cfg.defaults.vault_path).toBe(
       path.resolve(baseDir, "./test-output-vault/ObsFlow/Inbox"),
     );
+  });
+
+  it("rejects bases path not ending in .base", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
+      bases: unknown;
+    };
+    raw.bases = [
+      {
+        id: "x",
+        path: "nope.yaml",
+        mode: "managed",
+        filters: ['ok == "1"'],
+        views: [{ type: "table", name: "A" }],
+      },
+    ];
+    expect(() => normalizeConfig(raw, mockCfgDir)).toThrow(/\.base/);
+  });
+
+  it("rejects unknown view type", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
+      bases: unknown;
+    };
+    raw.bases = [
+      {
+        id: "x",
+        path: "R.base",
+        mode: "managed",
+        filters: [],
+        views: [{ type: "grid", name: "A" }],
+      },
+    ];
+    expect(() => normalizeConfig(raw, mockCfgDir)).toThrow(/table, cards, list, or map/);
   });
 });

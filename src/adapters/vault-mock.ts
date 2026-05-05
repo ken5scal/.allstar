@@ -2,8 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { parseVaultNote, renderVaultNote, replaceAiSummarySection } from "../note.js";
+import { renderBaseYaml } from "../base.js";
 import { ensureDir } from "../paths.js";
-import type { VaultRecord } from "../types.js";
+import type { BaseConfig, VaultRecord } from "../types.js";
 import type { VaultAdapter } from "./interfaces.js";
 
 export function createVaultMockAdapter(vaultRoot: string): VaultAdapter {
@@ -13,6 +14,13 @@ export function createVaultMockAdapter(vaultRoot: string): VaultAdapter {
       const full = path.join(root, noteRelPath);
       ensureDir(path.dirname(full));
       fs.writeFileSync(full, renderVaultNote(record), "utf8");
+    },
+    async upsertBase(base: BaseConfig): Promise<void> {
+      if (base.mode === "reference") return;
+      const full = path.join(root, base.path);
+      if (base.mode === "create_if_missing" && fs.existsSync(full)) return;
+      ensureDir(path.dirname(full));
+      fs.writeFileSync(full, renderBaseYaml(base), "utf8");
     },
     async updateAiSummary(
       noteRelPath: string,
