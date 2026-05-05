@@ -16,6 +16,7 @@ import { createVaultAgentAdapter } from "./adapters/vault-agent.js";
 import { createVaultMockAdapter } from "./adapters/vault-mock.js";
 import { createXMockAdapter } from "./adapters/x-mock.js";
 import { createXSdkAdapter } from "./adapters/x-sdk.js";
+import { ensureVaultBases } from "./bases.js";
 import {
   collectRssSource,
   collectXBookmarks,
@@ -234,6 +235,8 @@ async function runOrchestration(
       recursive: true,
     });
 
+    await ensureVaultBases(cfg, vault);
+
     const ai =
       cfg.ai.provider === "real"
         ? createAiRealStubAdapter()
@@ -374,6 +377,7 @@ async function runOrchestration(
       });
       try {
         const result = await collectXSearch({
+          cfg,
           search: s,
           collector: xCollector,
           state,
@@ -460,6 +464,7 @@ async function runOrchestration(
       });
       try {
         const result = await collectXList({
+          cfg,
           list: L,
           collector: xCollector,
           state,
@@ -546,6 +551,7 @@ async function runOrchestration(
       });
       try {
         const result = await collectXBookmarks({
+          cfg,
           bm: b,
           collector: xCollector,
           state,

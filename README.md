@@ -25,4 +25,5 @@ npm run obsflow -- run --config examples/config.yaml --targets collect-rss
 
 Optional credentials via `.env` (`CURSOR_API_KEY`, `SLACK_WEBHOOK_URL`, `X_BEARER_TOKEN`, etc.). See [TEST_PLAN.md](./TEST_PLAN.md) for test and smoke commands. Example launchd: [launchd/obsflow.example.plist](launchd/obsflow.example.plist).
 
-When your vault already contains many notes, set `defaults.vault_folder` in config to isolate obsflow output under a subfolder.
+- 設定ファイル内の相対パス（例: RSS mock の `fixture`、`state.dsn`）は **その YAML ファイルがあるディレクトリ** を基準に解決される（`obsflow tick --config path/to/config.yaml` 想定）。
+- `base_ids` は現時点では任意の補助プロパティです。既定 Base は `record_kind` で機能しますが、将来の複数 Base 振り分けに備えて保持しています。

@@ -13,8 +13,8 @@
 |----|------|
 | CP0 | CLI `validate` / 設定パース / `tick_run_id` ログ |
 | CP1 | SQLite checkpoint・seen・job_runs・`inTx` |
-| CP2 | feedsmith fixture → `SourceItem`、収集の idempotency |
-| CP3 | Vault note 本文・frontmatter（Agent は手動 smoke） |
+| CP2 | feedsmith fixture → `SourceItem`、収集の idempotency、`records` パステンプレート |
+| CP3 | Vault note 本文・frontmatter、`.base` YAML 生成（Agent は手動 smoke） |
 | CP4 | summarize / digest（mock AI） |
 | CP5 | 失敗時 exit 優先度、Slack mock、RSS URL 到達不能の失敗 |
 | CP6 | x-sdk / launchd 例（手動） |

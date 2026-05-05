@@ -21,7 +21,7 @@ sources:
     - id: "sample"
       enabled: true
       schedule: "*/30 * * * *"
-      fixture: "./test/fixtures/rss/sample.xml"
+      fixture: "./rss/sample.xml"
 
   x:
     provider: "mock"

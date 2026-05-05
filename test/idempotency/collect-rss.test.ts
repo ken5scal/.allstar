@@ -24,7 +24,7 @@ describe("collect idempotency", () => {
     process.env.OBSFLOW_SKIP_TICK_LOCK = "1";
     const tmp = mkdtempSync(path.join(os.tmpdir(), "obsflow-idem-"));
     const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml"));
-    const cfg = normalizeConfig(raw, repoRoot);
+    const cfg = normalizeConfig(raw, path.join(repoRoot, "test", "fixtures"));
     cfg.defaults.state.dsn = path.join(tmp, "state.db");
     cfg.defaults.vault_path = path.join(tmp, "vault");
 
@@ -39,7 +39,7 @@ describe("collect idempotency", () => {
       tickRunId: newId(),
       jobRunId: newId(),
     });
-    const n1 = (await vault.listNotePathsUnder(path.join("Sources", "RSS"))).length;
+    const n1 = (await vault.listNotePathsUnder(cfg.records.root_folder)).length;
     await collectRssSource({
       cfg,
       rss,
@@ -48,7 +48,7 @@ describe("collect idempotency", () => {
       tickRunId: newId(),
       jobRunId: newId(),
     });
-    const n2 = (await vault.listNotePathsUnder(path.join("Sources", "RSS"))).length;
+    const n2 = (await vault.listNotePathsUnder(cfg.records.root_folder)).length;
     expect(n1).toBe(2);
     expect(n2).toBe(n1);
     await state.close();

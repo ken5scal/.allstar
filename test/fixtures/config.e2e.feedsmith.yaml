@@ -1,0 +1,36 @@
+version: 1
+timezone: "UTC"
+
+defaults:
+  vault_path: "./test-output-vault-e2e"
+  vault_provider: "mock"
+  timezone: "UTC"
+  rss_provider: "feedsmith"
+  state:
+    driver: "sqlite"
+    dsn: "./test-output-e2e.sqlite"
+  auth:
+    cursor_api_key_env: "CURSOR_API_KEY"
+    x_bearer_token_env: "X_BEARER_TOKEN"
+    x_oauth2_access_token_env: "X_OAUTH2_ACCESS_TOKEN"
+  alert:
+    provider: "mock"
+
+sources:
+  rss:
+    - id: "hn-live"
+      enabled: true
+      schedule: "*/30 * * * *"
+      url: "https://news.ycombinator.com/rss"
+
+  x:
+    provider: "mock"
+    search: []
+    lists: []
+    bookmarks: []
+
+ai:
+  provider: "mock"
+
+jobs: []
+

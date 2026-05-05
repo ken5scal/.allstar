@@ -259,11 +259,12 @@ obsflow tick --config ./config.yaml
 
 1. `tick_run_id` を生成する (`crypto.randomUUID()`)。
 2. 設定読込・検証。
-3. `launchd` の起動時刻を基準に、各 `schedule` の due 判定を実施。
-4. source 収集 (RSS/X) を順次実行し、Vault へ 1 レコード単位で Cursor SDK + Obsidian Skills を使って保存する。
-5. due の summarize ジョブを実行し、AI Summary の更新内容を生成する。
-6. due の digest ジョブを実行。
-7. 失敗があれば Alert で Slack 通知。
+3. `bases` 設定に従い、Obsidian Bases (`.base`) を `create_if_missing` / `managed` で保証する (`reference` はスキップ)。
+4. `launchd` の起動時刻を基準に、各 `schedule` の due 判定を実施。
+5. source 収集 (RSS/X) を順次実行し、Vault へ 1 レコード単位で Cursor SDK + Obsidian Skills を使って保存する。
+6. due の summarize ジョブを実行し、AI Summary の更新内容を生成する。
+7. due の digest ジョブを実行。
+8. 失敗があれば Alert で Slack 通知。
 
 失敗が発生しても、他ターゲットが実行可能なら継続する (fail-soft)。
 
@@ -283,7 +284,8 @@ flowchart TD
     D -- No --> E[Emit error log with IDs]
     E --> F[Send Slack alert]
     F --> Z[Exit]
-    D -- Yes --> G[Evaluate due targets<br/>from schedule + LastJobRun]
+    D -- Yes --> B0[Ensure Obsidian Bases<br/>create_if_missing / managed]
+    B0 --> G[Evaluate due targets<br/>from schedule + LastJobRun]
 
     G --> H[Collect RSS/X]
     H --> I{Collect failed?}
@@ -312,7 +314,11 @@ flowchart TD
 
 ### 9.1 ノート作成
 
-- 保存先は source 種別ごとの固定ディレクトリ配下とする。
+- 保存先は `records` 設定（`root_folder`, `path_template`, `filename_template`, `date_source`, `source_groups`）で決まる。既定は vault 相対で `src/{source_group}/{source_id}/{yyyy}/{mm}/{dd}/{slug}.md`（`source_groups` で `x-*` は `sns` などに正規化）。
+- RSS / X の取得種別は `source_type`、パス用の大分類は `source_group`（frontmatter に出力）で表す。
+- Obsidian Bases 連携は **Vault 内 Markdown の properties をフィルタする宣言的ビュー**として扱う。`record_kind: obsflow-record` 等の識別子と Base の `filters` を一致させる。Base ファイルへ行を append する実装は行わない。
+- `bases` ブロックで `.base` を `reference`（obsflow は非編集）/ `create_if_missing`（無いときだけ生成）/ `managed`（常に上書き）で管理できる。
+- 設定 YAML 内の相対パス（例: RSS `fixture`, `defaults.state.dsn`）は **設定ファイルがあるディレクトリ**を基準に解決される。
 - 1 ソース = 1 ノートで作成し、source item key を frontmatter に保持する。
 
 ### 9.2 AI 要約追記/更新

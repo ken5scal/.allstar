@@ -1,0 +1,44 @@
+name: RSS E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Nightly at 03:00 JST (18:00 UTC).
+    - cron: "0 18 * * *"
+
+concurrency:
+  group: rss-e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rss-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate live RSS config
+        run: npm run obsflow -- validate --config test/fixtures/config.e2e.feedsmith.yaml
+
+      - name: Run RSS collect against live feed
+        env:
+          OBSFLOW_SKIP_TICK_LOCK: "1"
+        run: npm run obsflow -- run --config test/fixtures/config.e2e.feedsmith.yaml --targets collect-rss
+
+      - name: Verify vault outputs and Base rows
+        run: |
+          node -e "const fs=require('fs'); const path=require('path'); const vault=path.resolve('test/fixtures/test-output-vault-e2e'); const base=path.join(vault,'Records.base'); if(!fs.existsSync(base)){throw new Error('Records.base not found');} const sourceRoot=path.join(vault,'src'); if(!fs.existsSync(sourceRoot)){throw new Error('src folder not found under vault');} const md=[]; const walk=(d)=>{for(const n of fs.readdirSync(d)){const p=path.join(d,n);const st=fs.statSync(p); if(st.isDirectory()) walk(p); else if(n.endsWith('.md')) md.push(p);}}; walk(sourceRoot); if(md.length<1){throw new Error('no record markdown created');} const sample=fs.readFileSync(md[0],'utf8'); if(!sample.includes('record_kind: obsflow-record')){throw new Error('record_kind frontmatter missing');} console.log('record_markdown_count='+md.length);"
+
