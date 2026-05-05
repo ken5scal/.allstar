@@ -8,3 +8,4 @@ coverage/
 test-output-vault/
 test-output-mock.sqlite
 test/work/
+.obsflow/

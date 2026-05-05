@@ -19,7 +19,10 @@ npm run lint
 npm run build
 npm run obsflow -- validate --config test/fixtures/config.mock.yaml
 OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- tick --config test/fixtures/config.mock.yaml
+npm run obsflow -- run --config examples/config.yaml
+npm run obsflow -- run --config examples/config.yaml --targets collect-rss
 ```
 
 Optional credentials via `.env` (`CURSOR_API_KEY`, `SLACK_WEBHOOK_URL`, `X_BEARER_TOKEN`, etc.). See [TEST_PLAN.md](./TEST_PLAN.md) for test and smoke commands. Example launchd: [launchd/obsflow.example.plist](launchd/obsflow.example.plist).
 
+When your vault already contains many notes, set `defaults.vault_folder` in config to isolate obsflow output under a subfolder.

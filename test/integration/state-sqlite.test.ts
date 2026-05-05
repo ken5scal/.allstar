@@ -18,4 +18,19 @@ describe("state-sqlite", () => {
     expect(await repo.seenContentHash("s1", "h1")).toBe(true);
     await repo.close();
   });
+
+  it("creates parent directories for dsn automatically", async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "obsflow-state-"));
+    const dbPath = path.join(dir, "nested", "state", "obsflow.db");
+    const repo = new SqliteStateRepository(dbPath);
+    await repo.putCheckpoint({
+      sourceId: "rss:sample",
+      cursor: "cursor-1",
+    });
+    expect(await repo.getCheckpoint("rss:sample")).toEqual({
+      sourceId: "rss:sample",
+      cursor: "cursor-1",
+    });
+    await repo.close();
+  });
 });

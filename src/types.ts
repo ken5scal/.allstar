@@ -33,6 +33,8 @@ export interface StateDefaults {
 
 export interface DefaultsBlock {
   vault_path: string;
+  /** Optional subdirectory under vault_path for obsflow-managed files. */
+  vault_folder?: string;
   vault_provider: VaultProviderName;
   timezone: string;
   rss_provider: RssProviderName;

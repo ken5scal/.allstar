@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import Database from "better-sqlite3";
 
 import type { Checkpoint, JobRun } from "../types.js";
@@ -74,8 +77,31 @@ export class SqliteStateRepository implements StateRepository {
   private readonly db: Database.Database;
 
   constructor(dsn: string) {
-    this.db = new Database(dsn);
+    this.ensureParentDir(dsn);
+    try {
+      this.db = new Database(dsn);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to open SQLite state DB at "${dsn}". Set defaults.state.dsn to a writable path (for example "./.obsflow/state.db"). Original error: ${detail}`,
+        { cause: error },
+      );
+    }
     this.migrate();
+  }
+
+  private ensureParentDir(dsn: string): void {
+    const parent = path.dirname(dsn);
+    if (!parent || parent === ".") return;
+    try {
+      fs.mkdirSync(parent, { recursive: true });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to prepare directory for defaults.state.dsn "${dsn}". Choose a writable local path (for example "./.obsflow/state.db"). Original error: ${detail}`,
+        { cause: error },
+      );
+    }
   }
 
   private migrate(): void {

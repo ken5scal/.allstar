@@ -16,7 +16,7 @@
 | CP2 | feedsmith fixture → `SourceItem`、収集の idempotency |
 | CP3 | Vault note 本文・frontmatter（Agent は手動 smoke） |
 | CP4 | summarize / digest（mock AI） |
-| CP5 | 失敗時 exit 優先度、Slack mock |
+| CP5 | 失敗時 exit 優先度、Slack mock、RSS URL 到達不能の失敗 |
 | CP6 | x-sdk / launchd 例（手動） |
 
 ## コマンド
@@ -34,6 +34,7 @@
 | build | `npm run build` |
 | validate | `npm run obsflow -- validate --config test/fixtures/config.mock.yaml` |
 | tick | `OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- tick --config test/fixtures/config.mock.yaml` |
+| run all (manual) | `npm run obsflow -- run --config examples/config.yaml` |
 | run targets | `OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config test/fixtures/config.mock.yaml --targets collect-rss,summarize` |
 | smoke | `npm run smoke` |
 

@@ -60,6 +60,51 @@ function aggregateExit(failures: FailureReport[]): ExitSeverity {
   return 0;
 }
 
+type ManualJobResult = {
+  jobId: string;
+  sourceId?: string;
+  status: "success" | "failed";
+  processed?: number;
+  skipped?: number;
+  error?: string;
+};
+
+function printManualSummary(args: {
+  tickRunId: string;
+  results: ManualJobResult[];
+  exitCode: number;
+  failures: number;
+}): void {
+  const lines: string[] = [];
+  lines.push("");
+  lines.push(`obsflow run result (tick_run_id=${args.tickRunId})`);
+
+  if (args.results.length === 0) {
+    lines.push("- no jobs were executed (check --targets and enabled jobs)");
+  } else {
+    for (const r of args.results) {
+      const scope = r.sourceId ? `${r.jobId} [${r.sourceId}]` : r.jobId;
+      if (r.processed !== undefined) {
+        lines.push(
+          `- ${scope}: ${r.status} processed=${r.processed} skipped=${r.skipped ?? 0}`,
+        );
+      } else if (r.error) {
+        lines.push(`- ${scope}: ${r.status} error=${r.error}`);
+      } else {
+        lines.push(`- ${scope}: ${r.status}`);
+      }
+    }
+  }
+
+  const collectRows = args.results.filter((r) => r.processed !== undefined);
+  const processedTotal = collectRows.reduce((n, r) => n + (r.processed ?? 0), 0);
+  const skippedTotal = collectRows.reduce((n, r) => n + (r.skipped ?? 0), 0);
+  lines.push(
+    `summary: exit=${args.exitCode} failures=${args.failures} collected_processed=${processedTotal} collected_skipped=${skippedTotal}`,
+  );
+  process.stdout.write(`${lines.join("\n")}\n`);
+}
+
 async function saveJob(
   state: SqliteStateRepository,
   run: JobRun,
@@ -71,8 +116,9 @@ export async function runValidate(
   configPath: string,
   cwd: string,
 ): Promise<void> {
+  const configBaseDir = path.dirname(path.resolve(cwd, configPath));
   const raw = loadConfigFile(configPath);
-  const cfg = normalizeConfig(raw, cwd);
+  const cfg = normalizeConfig(raw, configBaseDir);
   validateConfigEnv(cfg);
 }
 
@@ -103,11 +149,13 @@ async function runOrchestration(
   const tickRunId = newId();
   const log = createRootLogger(tickRunId);
   const failures: FailureReport[] = [];
+  const manualResults: ManualJobResult[] = [];
+  const configBaseDir = path.dirname(path.resolve(cwd, configPath));
 
   let cfg: ObsflowConfig;
   try {
     const raw = loadConfigFile(configPath);
-    cfg = normalizeConfig(raw, cwd);
+    cfg = normalizeConfig(raw, configBaseDir);
     validateConfigEnv(cfg);
   } catch (e) {
     log.error({ err: e, msg: "config_error" });
@@ -125,7 +173,14 @@ async function runOrchestration(
       : createAlertMockAdapter();
   const dedupAlert = new DedupAlert(inner);
 
-  const state = new SqliteStateRepository(cfg.defaults.state.dsn);
+  let state: SqliteStateRepository;
+  try {
+    state = new SqliteStateRepository(cfg.defaults.state.dsn);
+  } catch (e) {
+    log.error({ err: e, msg: "state_error", dsn: cfg.defaults.state.dsn });
+    process.stderr.write(String(e) + "\n");
+    return 1;
+  }
   const lockOk = state.tryAcquireTickLock(tickRunId, 60 * 60 * 1000);
   if (!lockOk) {
     log.warn({ msg: "tick_lock_busy" });
@@ -133,46 +188,48 @@ async function runOrchestration(
     return 3;
   }
 
-  const vault =
-    cfg.defaults.vault_provider === "agent"
-      ? createVaultAgentAdapter({
-          vaultRoot: cfg.defaults.vault_path,
-          apiKey: envVal(cfg.defaults.auth.cursor_api_key_env, "CURSOR_API_KEY"),
-        })
-      : createVaultMockAdapter(cfg.defaults.vault_path);
-
-  fs.mkdirSync(path.join(cfg.defaults.vault_path, "Digests"), {
-    recursive: true,
-  });
-
-  const ai =
-    cfg.ai.provider === "real"
-      ? createAiRealStubAdapter()
-      : createAiMockAdapter();
-
-  const fixtureDir = path.join(cwd, "test/fixtures/x");
-  const xCollector =
-    cfg.sources.x.provider === "x-sdk"
-      ? createXSdkAdapter({
-          bearerToken: envVal(cfg.defaults.auth.x_bearer_token_env, "X_BEARER_TOKEN"),
-          oauthAccessToken:
-            cfg.sources.x.bookmarks.some((b) => b.enabled) ?
-              envVal(
-                cfg.defaults.auth.x_oauth2_access_token_env,
-                "X_OAUTH2_ACCESS_TOKEN",
-              )
-            : undefined,
-        })
-      : createXMockAdapter(fixtureDir);
-
-  const now = new Date();
-  const targetSet =
-    mode.mode === "manual" ? new Set(mode.targets.map((t) => t.trim())) : null;
-
-  const want = (name: string) =>
-    mode.mode === "tick" || !targetSet ? true : targetSet.has(name);
-
   try {
+    const vault =
+      cfg.defaults.vault_provider === "agent"
+        ? createVaultAgentAdapter({
+            vaultRoot: cfg.defaults.vault_path,
+            apiKey: envVal(cfg.defaults.auth.cursor_api_key_env, "CURSOR_API_KEY"),
+          })
+        : createVaultMockAdapter(cfg.defaults.vault_path);
+
+    fs.mkdirSync(path.join(cfg.defaults.vault_path, "Digests"), {
+      recursive: true,
+    });
+
+    const ai =
+      cfg.ai.provider === "real"
+        ? createAiRealStubAdapter()
+        : createAiMockAdapter();
+
+    const fixtureDir = path.join(cwd, "test/fixtures/x");
+    const xCollector =
+      cfg.sources.x.provider === "x-sdk"
+        ? createXSdkAdapter({
+            bearerToken: envVal(cfg.defaults.auth.x_bearer_token_env, "X_BEARER_TOKEN"),
+            oauthAccessToken:
+              cfg.sources.x.bookmarks.some((b) => b.enabled) ?
+                envVal(
+                  cfg.defaults.auth.x_oauth2_access_token_env,
+                  "X_OAUTH2_ACCESS_TOKEN",
+                )
+              : undefined,
+          })
+        : createXMockAdapter(fixtureDir);
+
+    const now = new Date();
+    const targetSet =
+      mode.mode === "manual" && mode.targets.length > 0 ?
+        new Set(mode.targets.map((t) => t.trim()))
+      : null;
+
+    const want = (name: string) =>
+      mode.mode === "tick" || !targetSet ? true : targetSet.has(name);
+
     for (const rss of cfg.sources.rss) {
       if (!rss.enabled) continue;
       if (!want("collect-rss")) continue;
@@ -197,7 +254,7 @@ async function runOrchestration(
         status: "running",
       });
       try {
-        await collectRssSource({
+        const result = await collectRssSource({
           cfg,
           rss,
           state,
@@ -205,6 +262,15 @@ async function runOrchestration(
           tickRunId,
           jobRunId: jr,
         });
+        if (mode.mode === "manual") {
+          manualResults.push({
+            jobId,
+            sourceId: rss.id,
+            status: "success",
+            processed: result.processed,
+            skipped: result.skipped,
+          });
+        }
         await saveJob(state, {
           job_run_id: jr,
           tick_run_id: tickRunId,
@@ -216,6 +282,14 @@ async function runOrchestration(
         });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        if (mode.mode === "manual") {
+          manualResults.push({
+            jobId,
+            sourceId: rss.id,
+            status: "failed",
+            error: msg,
+          });
+        }
         failures.push({
           severity: 2,
           target: jobId,
@@ -262,7 +336,7 @@ async function runOrchestration(
         status: "running",
       });
       try {
-        await collectXSearch({
+        const result = await collectXSearch({
           search: s,
           collector: xCollector,
           state,
@@ -270,6 +344,15 @@ async function runOrchestration(
           tickRunId,
           jobRunId: jr,
         });
+        if (mode.mode === "manual") {
+          manualResults.push({
+            jobId,
+            sourceId: s.id,
+            status: "success",
+            processed: result.processed,
+            skipped: result.skipped,
+          });
+        }
         await saveJob(state, {
           job_run_id: jr,
           tick_run_id: tickRunId,
@@ -281,6 +364,14 @@ async function runOrchestration(
         });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        if (mode.mode === "manual") {
+          manualResults.push({
+            jobId,
+            sourceId: s.id,
+            status: "failed",
+            error: msg,
+          });
+        }
         failures.push({
           severity: 2,
           target: jobId,
@@ -327,7 +418,7 @@ async function runOrchestration(
         status: "running",
       });
       try {
-        await collectXList({
+        const result = await collectXList({
           list: L,
           collector: xCollector,
           state,
@@ -335,6 +426,15 @@ async function runOrchestration(
           tickRunId,
           jobRunId: jr,
         });
+        if (mode.mode === "manual") {
+          manualResults.push({
+            jobId,
+            sourceId: L.id,
+            status: "success",
+            processed: result.processed,
+            skipped: result.skipped,
+          });
+        }
         await saveJob(state, {
           job_run_id: jr,
           tick_run_id: tickRunId,
@@ -346,6 +446,14 @@ async function runOrchestration(
         });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        if (mode.mode === "manual") {
+          manualResults.push({
+            jobId,
+            sourceId: L.id,
+            status: "failed",
+            error: msg,
+          });
+        }
         failures.push({
           severity: 2,
           target: jobId,
@@ -392,7 +500,7 @@ async function runOrchestration(
         status: "running",
       });
       try {
-        await collectXBookmarks({
+        const result = await collectXBookmarks({
           bm: b,
           collector: xCollector,
           state,
@@ -400,6 +508,15 @@ async function runOrchestration(
           tickRunId,
           jobRunId: jr,
         });
+        if (mode.mode === "manual") {
+          manualResults.push({
+            jobId,
+            sourceId: b.id,
+            status: "success",
+            processed: result.processed,
+            skipped: result.skipped,
+          });
+        }
         await saveJob(state, {
           job_run_id: jr,
           tick_run_id: tickRunId,
@@ -411,6 +528,14 @@ async function runOrchestration(
         });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        if (mode.mode === "manual") {
+          manualResults.push({
+            jobId,
+            sourceId: b.id,
+            status: "failed",
+            error: msg,
+          });
+        }
         failures.push({
           severity: 2,
           target: jobId,
@@ -455,6 +580,9 @@ async function runOrchestration(
         });
         try {
           await runSummarizeJob({ cfg, vault, ai, jobId: job.id });
+          if (mode.mode === "manual") {
+            manualResults.push({ jobId: job.id, status: "success" });
+          }
           await saveJob(state, {
             job_run_id: jr,
             tick_run_id: tickRunId,
@@ -465,6 +593,9 @@ async function runOrchestration(
           });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
+          if (mode.mode === "manual") {
+            manualResults.push({ jobId: job.id, status: "failed", error: msg });
+          }
           failures.push({
             severity: 3,
             target: job.id,
@@ -522,6 +653,9 @@ async function runOrchestration(
           tickRunId,
           jobRunId: jr,
         });
+        if (mode.mode === "manual") {
+          manualResults.push({ jobId, status: "success" });
+        }
         await saveJob(state, {
           job_run_id: jr,
           tick_run_id: tickRunId,
@@ -532,6 +666,9 @@ async function runOrchestration(
         });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        if (mode.mode === "manual") {
+          manualResults.push({ jobId, status: "failed", error: msg });
+        }
         failures.push({
           severity: 3,
           target: jobId,
@@ -558,8 +695,20 @@ async function runOrchestration(
     await dedupAlert.flush();
 
     const code = aggregateExit(failures);
+    if (mode.mode === "manual") {
+      printManualSummary({
+        tickRunId,
+        results: manualResults,
+        exitCode: code,
+        failures: failures.length,
+      });
+    }
     log.info({ msg: "tick_done", exit: code, failures: failures.length });
     return code;
+  } catch (e) {
+    log.error({ err: e, msg: "orchestration_error" });
+    process.stderr.write(String(e) + "\n");
+    return 1;
   } finally {
     state.releaseTickLock(tickRunId);
     await state.close();

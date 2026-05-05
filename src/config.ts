@@ -33,6 +33,29 @@ function optStr(v: unknown): string | undefined {
   return v;
 }
 
+function normalizeVaultPaths(cwd: string, vaultPathRaw: string, vaultFolderRaw: unknown): {
+  vaultPath: string;
+  vaultFolder?: string;
+} {
+  const vaultBase = path.resolve(cwd, vaultPathRaw);
+  const folder = optStr(vaultFolderRaw)?.trim();
+  if (!folder) {
+    return { vaultPath: vaultBase };
+  }
+  if (path.isAbsolute(folder)) {
+    throw new Error("defaults.vault_folder must be a relative path");
+  }
+  const resolved = path.resolve(vaultBase, folder);
+  const relFromBase = path.relative(vaultBase, resolved);
+  if (relFromBase.startsWith("..") || path.isAbsolute(relFromBase)) {
+    throw new Error("defaults.vault_folder must stay within defaults.vault_path");
+  }
+  return {
+    vaultPath: resolved,
+    vaultFolder: folder,
+  };
+}
+
 export function loadConfigFile(configPath: string): unknown {
   const raw = fs.readFileSync(configPath, "utf8");
   return YAML.parse(raw);
@@ -50,9 +73,15 @@ export function normalizeConfig(raw: unknown, cwd: string): ObsflowConfig {
   if (!isRecord(d)) throw new Error("defaults is required");
 
   const stateBlock = isRecord(d.state) ? d.state : {};
+  const vaultNormalized = normalizeVaultPaths(
+    cwd,
+    str(d.vault_path, "defaults.vault_path"),
+    d.vault_folder,
+  );
 
   const defaults: DefaultsBlock = {
-    vault_path: path.resolve(cwd, str(d.vault_path, "defaults.vault_path")),
+    vault_path: vaultNormalized.vaultPath,
+    vault_folder: vaultNormalized.vaultFolder,
     vault_provider:
       d.vault_provider === "mock" || d.vault_provider === "agent"
         ? d.vault_provider

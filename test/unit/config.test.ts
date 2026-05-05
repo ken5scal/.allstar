@@ -15,4 +15,28 @@ describe("config", () => {
     expect(cfg.sources.rss[0].id).toBe("sample");
     validateConfigEnv(cfg);
   });
+
+  it("resolves relative paths from provided config base dir", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml"));
+    const baseDir = "/tmp/obsflow-config-base";
+    const cfg = normalizeConfig(raw, baseDir);
+    expect(cfg.defaults.state.dsn).toBe(path.resolve(baseDir, "./test-output-mock.sqlite"));
+    expect(cfg.defaults.vault_path).toBe(path.resolve(baseDir, "./test-output-vault"));
+    expect(cfg.sources.rss[0].fixture).toBe(
+      path.resolve(baseDir, "./test/fixtures/rss/sample.xml"),
+    );
+  });
+
+  it("supports defaults.vault_folder under vault_path", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
+      defaults: { vault_folder?: string };
+    };
+    raw.defaults.vault_folder = "ObsFlow/Inbox";
+    const baseDir = "/tmp/obsflow-config-base";
+    const cfg = normalizeConfig(raw, baseDir);
+    expect(cfg.defaults.vault_folder).toBe("ObsFlow/Inbox");
+    expect(cfg.defaults.vault_path).toBe(
+      path.resolve(baseDir, "./test-output-vault/ObsFlow/Inbox"),
+    );
+  });
 });

@@ -97,8 +97,9 @@ test/
 
 - `obsflow tick --config <path>`
   - 定期実行用の主コマンド。設定に基づいて実行対象を判定する。
-- `obsflow run --config <path> --targets <csv>`
-  - 手動実行用。`targets` で明示した処理のみ実行する。
+- `obsflow run --config <path> [--targets <csv>]`
+  - 手動実行用。`--targets` 未指定時は有効な処理をすべて実行する。
+  - `--targets` 指定時は明示した処理のみ実行する。
 - `obsflow validate --config <path>`
   - 設定ファイル検証のみを行う。
 
@@ -106,7 +107,7 @@ test/
 
 ### 6.2 `targets` の値
 
-`run` で指定可能なターゲット:
+`run --targets` で指定可能なターゲット:
 
 - `collect-rss`
 - `collect-x-search`
@@ -149,6 +150,8 @@ timezone: "Asia/Tokyo"
 
 defaults:
   vault_path: "/Users/you/ObsidianVault"
+  # 任意: Vault 内の保存先サブフォルダを指定 (例: /Users/you/ObsidianVault/ObsFlow)
+  vault_folder: "ObsFlow"
   state:
     driver: "sqlite"
     dsn: "./state.db"

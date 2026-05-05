@@ -44,10 +44,23 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Spec-level verification via Vitest (unit/integration/failure-path assertions).
       - name: Test
         env:
           OBSFLOW_SKIP_TICK_LOCK: "1"
         run: npm test
+
+      # Runtime smoke for manual CLI path: ensures `run --targets collect-rss` executes end-to-end.
+      - name: Manual run smoke (RSS target)
+        env:
+          OBSFLOW_SKIP_TICK_LOCK: "1"
+        run: npm run obsflow -- run --config test/fixtures/config.run.mock.yaml --targets collect-rss
+
+      # Runtime smoke for manual CLI path with targets omitted (runs all enabled jobs).
+      - name: Manual run smoke (all enabled jobs)
+        env:
+          OBSFLOW_SKIP_TICK_LOCK: "1"
+        run: npm run obsflow -- run --config test/fixtures/config.run.mock.yaml
 
       - name: Build
         run: npm run build

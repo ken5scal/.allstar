@@ -31,10 +31,11 @@ export async function runCli(argv: string[]): Promise<void> {
   program
     .command("run")
     .requiredOption("--config <path>", "path to config.yaml")
-    .requiredOption("--targets <csv>", "comma-separated targets")
-    .action(async (opts: { config: string; targets: string }) => {
+    .option("--targets <csv>", "comma-separated targets (omit to run all enabled jobs)")
+    .action(async (opts: { config: string; targets?: string }) => {
       const p = path.resolve(opts.config);
-      const targets = opts.targets.split(",").map((s) => s.trim()).filter(Boolean);
+      const targets =
+        opts.targets?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
       const code = await runManual(p, process.cwd(), targets);
       process.exitCode = code;
     });
