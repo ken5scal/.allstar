@@ -193,22 +193,22 @@ bases:
 - Obsidian Vault がローカルファイルシステムにある場合、cloud sub-agent はその Vault を直接編集できない。
 - local runtime で Obsidian Skills を使う場合、custom sub-agent は使えない前提で設計する必要がある。
 
-そのため、初期実装は次のどちらかを選ぶ。
+初回実装では案 A を採用する。
 
-#### 案 A: ローカル Vault 更新優先
+#### 採用案 A: ローカル Vault 更新優先
 
 - メインの local Cursor SDK agent が Obsidian Skills を使ってレコード作成・プロパティ更新・Base ファイル更新を行う。
 - 要約/タグ付けは `Agent.prompt()` または `Agent.create()` による別 local agent 呼び出しとして実装する。
 - SDK の「custom sub-agents」ではないが、ローカル Vault を安全に扱いやすい。
 
-#### 案 B: custom sub-agent 優先
+#### 後日検討案 B: custom sub-agent 優先
 
 - cloud runtime の custom sub-agent に要約・タグ候補生成だけを委譲する。
 - sub-agent は Vault を直接編集せず、JSON などの構造化結果を返す。
 - メイン処理がローカル Vault に反映する。
 - 将来、Vault を Git リポジトリとして cloud agent が扱える運用にするなら、cloud agent に Base/record 更新まで寄せられる。
 
-現時点では、ローカル Obsidian Vault 更新が要件の中心に見えるため、案 A を初期実装、案 B をオプション設計にするのが安全。
+案 B は初回実装の対象外とし、将来 cloud runtime / custom sub-agent を使った要約・タグ候補生成を検討するための設計メモとして残す。
 
 ## 4. 更新が必要そうなファイル
 
@@ -365,7 +365,7 @@ bases:
 ## 6. リスクと注意点
 
 - Obsidian Bases は Markdown ノートの view であり、Base ファイルへ個別 row を直接 append するモデルではない。実装では frontmatter と Base filter の整合が重要。
-- Cursor SDK custom sub-agents は cloud-only 前提のため、ローカル Vault 直接編集とは相性に制約がある。
+- Cursor SDK custom sub-agents は cloud-only 前提のため、ローカル Vault 直接編集とは相性に制約がある。初回は local agent を採用し、この制約を避ける。
 - `src/` という Vault 内フォルダ名はリポジトリの `src/` と混同しやすい。設定名やログでは `vault_rel_path` と明記する。
 - 日付ディレクトリを `published_at` ベースにすると古い記事が過去フォルダへ入り、投入日の追跡が難しくなる。一方で `captured_at` ベースにすると公開年月でのファイルツリー整理は弱くなるため、Base の sort/filter で補う。
 - 既存 `status` は当面維持し、処理補助状態だけ `summary_status` / `tag_status` で分ける。
@@ -377,7 +377,7 @@ bases:
 2. Base ファイルは `reference`, `create_if_missing`, `managed` のどれを主運用にするか。初期 default は `create_if_missing` を推奨する。
 3. レコード保存パスは `src/{source_group}/{source_id}/YYYY/mm/dd` を基本形にしてよいか。`source_group` の初期語彙は `rss`, `sns`, `web`, `youtube` とし、`x-search` / `x-list` / `x-bookmarks` はすべて `sns` にまとめる方針でよいか。
 4. 日付ディレクトリは初期 default を収集日時 (`captured_at`) とし、公開日時 (`published_at`) は property + Base sort/filter で扱う方針でよいか。
-5. Cursor SDK の custom sub-agent を必須にするか。初期は Cursor SDK local agent を基本にし、sub-agent は要約/タグ候補生成のオプションにするか。
+5. 初回は Cursor SDK local agent 採用で進める。後続で案 B の custom sub-agent を使う場合、要約/タグ候補生成だけに限定するか、Vault を Git 管理して cloud agent から編集可能にするか。
 6. 要約・タグ付け agent は Vault を読ませる必要があるか、それとも本文を prompt payload として渡して JSON 結果だけ受け取ればよいか。
 7. `tags` の統制語彙、`category` enum の見直し、タグ数上限、階層タグの可否をどうするか。
 8. `status` は当面単一のままにし、処理補助状態だけ `summary_status` / `tag_status` を追加する方針でよいか。
@@ -392,5 +392,5 @@ bases:
 - Base mode: `create_if_missing` を標準、`reference` / `managed` をオプション。
 - 保存パス: `records.root_folder: "src"`, `path_template: "{source_group}/{source_id}/{yyyy}/{mm}/{dd}"`。
 - 日付: ディレクトリは `captured_at`、公開日時は `published_at` property と Base view で扱う。
-- agent: 初期は Cursor SDK local agent を使い、custom sub-agent は text-only 分類のオプションとして後続対応。
+- agent: 初回は Cursor SDK local agent を使う。custom sub-agent は案 B として後続検討に残す。
 - `status`: 既存互換のため当面維持し、追加で `summary_status` / `tag_status` を導入。
