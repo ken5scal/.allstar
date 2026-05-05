@@ -6,14 +6,14 @@
 
 取得した記事・投稿などの `VaultRecord` を、Obsidian Vault 内の任意ディレクトリに Markdown ページとして作成し、Vault 直下または特定フォルダに配置された Obsidian Bases (`.base`) からレコードとして参照できるようにする。
 
-本計画では、Obsidian Bases を「独立した DB への INSERT 先」ではなく「Vault 内 Markdown ノートを frontmatter / file metadata で絞り込む宣言的ビュー」として扱う。したがって、登録の実体は次の 2 点で成立させる。
+本計画では、Obsidian Bases を「独立した DB への INSERT 先」ではなく「Vault 内 Markdown ノートを properties/frontmatter / file metadata で絞り込む宣言的ビュー」として扱う。これは Obsidian の Bases が `filters` と `views` で Vault 内ノートを表示するモデルに沿った方針である。したがって、登録の実体は次の 2 点で成立させる。
 
 1. レコードページを所定パスへ作成し、Base が参照できる frontmatter を記入する。
 2. Base ファイル側に、そのレコード群を拾う `filters` / `views` / `order` を定義する。
 
-### 1.1 「frontmatter + Base filter 方式」とは
+### 1.1 Obsidian-native な Base 登録方式
 
-Obsidian Bases は、Base ファイルの中にレコード行そのものを保存する仕組みではない。Vault 内にある Markdown ページを、frontmatter のプロパティやファイル情報で絞り込み、表・カード・リストとして表示する仕組みとして扱う。
+Obsidian Bases は、Base ファイルの中にレコード行そのものを保存する仕組みではない。Vault 内にある Markdown ページを、properties/frontmatter の値やファイル情報で絞り込み、表・カード・リストとして表示する仕組みとして扱う。
 
 つまり「Base に登録する」とは、Base ファイルへ 1 行 append することではなく、次のような Markdown ページを作ることを意味する。
 
@@ -59,7 +59,7 @@ views:
       - captured_at
 ```
 
-この方式では、レコードページの作成と frontmatter 更新が完了した時点で、Base の条件に合う限り自動的に Base 上の 1 行として表示される。
+この方式では、レコードページの作成と properties/frontmatter 更新が完了した時点で、Base の条件に合う限り自動的に Base 上の 1 行として表示される。obsflow はこの Obsidian-native な方式を採用する。
 
 ## 2. 既存設計・実装から分かったこと
 
@@ -180,10 +180,8 @@ bases:
 | `origin` | 取得元の補助表示名。必要なら `source_id` や domain から導出 |
 | `published_at` | コンテンツの公開日時。取得元から得られる場合のみ設定 |
 | `captured_at` | 収集・保存時刻。`created_at` を公開日時に使う場合の実保存時刻 |
-| `tag_status` | AI タグ付け状態。例: `pending`, `done`, `failed` |
-| `summary_status` | AI 要約状態。例: `pending`, `done`, `failed` |
 
-`status` は当面 1 つのまま維持する。全体のインプット用データベースとして使う範囲では、処理状態と読書状態を分離する必要はまだ薄い。ただし、将来 `captured` / `summarized` の処理状態と `unread` / `read` の読書状態を同時に扱いたくなった場合に備え、`summary_status` / `tag_status` は別 property として持たせる。
+`status` は当面 1 つのまま維持する。全体のインプット用データベースとして使う範囲では、処理状態と読書状態を分離する必要はまだ薄い。本スコープでは `summary_status` / `tag_status` のような処理補助状態は追加しない。
 
 ### 3.4 Cursor SDK / Obsidian Skills / サブエージェント
 
@@ -198,7 +196,7 @@ bases:
 #### 採用案 A: ローカル Vault 更新優先
 
 - メインの local Cursor SDK agent が Obsidian Skills を使ってレコード作成・プロパティ更新・Base ファイル更新を行う。
-- 要約/タグ付けは `Agent.prompt()` または `Agent.create()` による別 local agent 呼び出しとして実装する。
+- 本スコープではレコードページ作成、properties/frontmatter 記入、Base ファイル作成/更新のみを扱う。
 - SDK の「custom sub-agents」ではないが、ローカル Vault を安全に扱いやすい。
 
 #### 後日検討案 B: custom sub-agent 優先
@@ -217,14 +215,13 @@ bases:
 - `examples/config.yaml`
   - `records` ブロックを追加する。
   - `bases` ブロックを追加する。
-  - `agents` または `ai.agent` ブロックを追加し、要約・タグ付け agent の provider / model / runtime 方針を設定できるようにする。
 - `test/fixtures/config.mock.yaml`
   - 新設定の最小 fixture を追加する。
 - `test/fixtures/config.run.mock.yaml`
   - manual run fixture も必要に応じて更新する。
 - `src/types.ts`
-  - `RecordsConfig`, `BaseConfig`, `BaseViewConfig`, `AgentRuntimeConfig` などを追加する。
-  - `VaultRecord` に Base/処理状態用 frontmatter を追加する。
+  - `RecordsConfig`, `BaseConfig`, `BaseViewConfig` などを追加する。
+  - `VaultRecord` に Base 表示用 frontmatter を追加する。
 - `src/config.ts`
   - 新ブロックの parse / default / validation を追加する。
   - Base path と record path template が Vault 外に出ないことを検証する。
@@ -238,7 +235,7 @@ bases:
   - path traversal を防ぐ。
 - `src/jobs/collect.ts`
   - `noteRelPathForItem()` を設定対応に変更する。
-  - `itemToVaultRecord()` に `record_kind`, `base_ids`, `source_group`, `origin`, `published_at`, `captured_at`, `summary_status`, `tag_status` を設定する。
+  - `itemToVaultRecord()` に `record_kind`, `base_ids`, `source_group`, `origin`, `published_at`, `captured_at` を設定する。
 - `src/note.ts`
   - 追加 frontmatter の render/parse を対応する。
   - `tags` / `category` / `summary` 更新が Base に即反映される形を維持する。
@@ -263,16 +260,7 @@ bases:
 
 ### 4.4 要約・タグ付け agent
 
-- `src/adapters/ai-real.ts`
-  - stub を実装するか、新規 `src/adapters/ai-agent.ts` を追加する。
-  - `AiSummaryResult` の `tags` / `category` を返す prompt contract を定義する。
-- `src/jobs/summarize.ts`
-  - hardcoded roots を `records.root_folder` または Base 設定から導出する。
-  - `out.tags`, `out.category` を `updateAiSummary()` patch に含める。
-  - `summary_status`, `tag_status` を更新する。
-- `src/adapters/vault-agent.ts`
-  - `updateAiSummary()` の直接 `fs` 更新を Cursor SDK + Obsidian Skills 経由に寄せる。
-  - local agent の `settingSources` をどう扱うかを設定可能にする。
+本スコープでは扱わない。後続で要約・タグ付けを Cursor SDK agent または custom sub-agent に委譲するかを検討する。
 
 ### 4.5 digest / 参照系
 
@@ -287,7 +275,7 @@ bases:
 - `README.md`
   - 設定例と運用上の注意を追記する。
 - `TEST_PLAN.md`
-  - Base YAML 生成、record path template、tag/category patch、agent smoke を追加する。
+  - Base YAML 生成、record path template、agent smoke を追加する。
 - `test/unit/config.test.ts`
   - 新設定の default / validation / path safety を追加する。
 - 新規 `test/unit/paths.test.ts`
@@ -301,7 +289,7 @@ bases:
 
 ### Step 1: Config と型を追加する
 
-- `records` / `bases` / agent runtime 設定を `src/types.ts` に追加。
+- `records` / `bases` 設定を `src/types.ts` に追加。
 - `src/config.ts` で parse/default/validation を実装。
 - `examples/config.yaml` と test fixtures を更新。
 - 完了条件:
@@ -320,7 +308,7 @@ bases:
 ### Step 3: frontmatter を Base 対応に拡張する
 
 - `VaultRecord` / `renderVaultNote()` / `parseVaultNote()` を拡張。
-- `record_kind`, `base_ids`, `source_group`, `origin`, `published_at`, `captured_at`, `summary_status`, `tag_status` を初期値付きで出力。
+- `record_kind`, `base_ids`, `source_group`, `origin`, `published_at`, `captured_at` を初期値付きで出力。
 - 完了条件:
   - 生成ノートを parse して追加 property が保持される。
   - Base filter に使う property が常に存在する。
@@ -334,24 +322,14 @@ bases:
   - `Records.base` のような Base ファイルが Vault 直下または指定フォルダに作成される。
   - YAML parse が通り、未定義 formula 参照などを生成しない。
 
-### Step 5: 要約・タグ付けを agent 化する
+### Step 5: Vault 更新を Obsidian Skills 経由へ寄せる
 
-- `ai-real` stub を置き換えるか、`ai.provider: agent` を追加する。
-- prompt contract は JSON 出力を要求し、`summary`, `short_summary`, `tags`, `category` を返す。
-- `summarize.ts` が `tags`, `category`, `summary_status`, `tag_status` を patch する。
+- レコード作成、properties/frontmatter 更新、Base 更新の prompt を分け、失敗箇所をログで追えるようにする。
 - 完了条件:
-  - mock provider では deterministic な tags/category を返す。
-  - agent provider は Cursor SDK の startup failure と run failure を区別してエラー化する。
-
-### Step 6: Vault 更新を Obsidian Skills 経由へ寄せる
-
-- `vault-agent.updateAiSummary()` の直接 `fs` 更新を Cursor SDK agent prompt に変更する。
-- レコード作成、property 更新、Base 更新の prompt を分け、失敗箇所をログで追えるようにする。
-- 完了条件:
-  - agent mode の smoke でレコード作成と property 更新ができる。
+  - agent mode の smoke でレコード作成と properties/frontmatter 更新ができる。
   - mock mode のテストは外部 Cursor SDK 呼び出しなしで通る。
 
-### Step 7: docs とテストを更新する
+### Step 6: docs とテストを更新する
 
 - `DETAILED_DESIGN.md`, `OBSIDIAN_SCHEMA.md`, `README.md`, `TEST_PLAN.md` を更新。
 - unit/integration/idempotency/failure-path を更新。
@@ -368,29 +346,26 @@ bases:
 - Cursor SDK custom sub-agents は cloud-only 前提のため、ローカル Vault 直接編集とは相性に制約がある。初回は local agent を採用し、この制約を避ける。
 - `src/` という Vault 内フォルダ名はリポジトリの `src/` と混同しやすい。設定名やログでは `vault_rel_path` と明記する。
 - 日付ディレクトリを `published_at` ベースにすると古い記事が過去フォルダへ入り、投入日の追跡が難しくなる。一方で `captured_at` ベースにすると公開年月でのファイルツリー整理は弱くなるため、Base の sort/filter で補う。
-- 既存 `status` は当面維持し、処理補助状態だけ `summary_status` / `tag_status` で分ける。
+- 既存 `status` は当面維持し、処理補助状態は本スコープでは追加しない。
 - Base を `managed` で上書きする場合、手動編集が失われる。`reference` モードまたは managed block marker の採用を検討する。
 
-## 7. 確認が必要な点
+## 7. 確定した初期方針
 
-1. Base への「登録」は、Base ファイルに row を書くのではなく、レコードページの frontmatter を Base filter で拾わせる方式でよいか。
-2. Base ファイルは `reference`, `create_if_missing`, `managed` のどれを主運用にするか。初期 default は `create_if_missing` を推奨する。
-3. レコード保存パスは `src/{source_group}/{source_id}/YYYY/mm/dd` を基本形にしてよいか。`source_group` の初期語彙は `rss`, `sns`, `web`, `youtube` とし、`x-search` / `x-list` / `x-bookmarks` はすべて `sns` にまとめる方針でよいか。
-4. 日付ディレクトリは初期 default を収集日時 (`captured_at`) とし、公開日時 (`published_at`) は property + Base sort/filter で扱う方針でよいか。
-5. 初回は Cursor SDK local agent 採用で進める。後続で案 B の custom sub-agent を使う場合、要約/タグ候補生成だけに限定するか、Vault を Git 管理して cloud agent から編集可能にするか。
-6. 要約・タグ付け agent は Vault を読ませる必要があるか、それとも本文を prompt payload として渡して JSON 結果だけ受け取ればよいか。
-7. `tags` の統制語彙、`category` enum の見直し、タグ数上限、階層タグの可否をどうするか。
-8. `status` は当面単一のままにし、処理補助状態だけ `summary_status` / `tag_status` を追加する方針でよいか。
-9. 同一記事の再取得時は既存ページを更新するか、新規ページを作らず state のみ更新するか。
-10. ファイル名衝突時の suffix は `source_item_key` hash、連番、日付時刻のどれにするか。
-
-## 8. 推奨する初期決定
-
-未確定事項が残る場合の初期実装は以下を推奨する。
-
-- Base 登録方式: frontmatter + Base filter。
-- Base mode: `create_if_missing` を標準、`reference` / `managed` をオプション。
+- Base 登録方式: Obsidian-native な方式として、レコードページの properties/frontmatter を Base filter で拾わせる。Base ファイルへ個別 row を書き込む実装はしない。
+- Base mode: `create_if_missing` を標準にする。`reference` / `managed` は設定値として残すが、初期運用の主軸にはしない。
 - 保存パス: `records.root_folder: "src"`, `path_template: "{source_group}/{source_id}/{yyyy}/{mm}/{dd}"`。
-- 日付: ディレクトリは `captured_at`、公開日時は `published_at` property と Base view で扱う。
-- agent: 初回は Cursor SDK local agent を使う。custom sub-agent は案 B として後続検討に残す。
-- `status`: 既存互換のため当面維持し、追加で `summary_status` / `tag_status` を導入。
+- `source_group`: 初期語彙は `rss`, `sns`, `web`, `youtube`。`x-search` / `x-list` / `x-bookmarks` は取得 family として `x` にまとめ、group 値は `sns` にする。
+- 日付: ディレクトリは `captured_at` を使う。公開日時は `published_at` property として保持し、Base view の sort/filter で扱う。
+- Cursor SDK: 初回は local agent を使う。案 B の custom sub-agent 設計は後日検討用メモとして残すが、初回実装では考慮しない。
+- `status`: 当面単一のまま維持する。本スコープでは `summary_status` / `tag_status` のような処理補助状態は追加しない。
+
+## 8. スコープ外として扱う点
+
+以下は現時点では設計・実装対象にしない。
+
+- 要約・タグ付け agent の入力形式や JSON contract。
+- `tags` の統制語彙、`category` enum の見直し、タグ数上限、階層タグの可否。
+- status の処理状態/読書状態への分離。
+- 案 B の custom sub-agent 運用詳細。
+- 同一記事再取得時の細かな更新方針。
+- ファイル名衝突時の suffix 方式。
