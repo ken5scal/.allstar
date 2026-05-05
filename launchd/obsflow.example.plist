@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.local.obsflow</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>WorkingDirectory</key>
+  <string>/Users/you/workspace/.allstar</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/you/workspace/.allstar/dist/main.js</string>
+    <string>tick</string>
+    <string>--config</string>
+    <string>/Users/you/workspace/.allstar/examples/config.yaml</string>
+  </array>
+  <key>StandardOutPath</key>
+  <string>/Users/you/Library/Logs/obsflow/obsflow.out.jsonl</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/you/Library/Logs/obsflow/obsflow.err.jsonl</string>
+</dict>
+</plist>
