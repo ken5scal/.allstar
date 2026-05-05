@@ -21,7 +21,6 @@ export function renderVaultNote(r: VaultRecord): string {
     job_run_id: r.job_run_id,
   };
   if (r.source_id !== undefined) fm.source_id = r.source_id;
-  if (r.title !== undefined) fm.title = r.title;
   if (r.category !== undefined) fm.category = r.category;
   const body = [
     "",
@@ -71,7 +70,6 @@ export function parseVaultNote(markdown: string): VaultRecord | null {
     source_type: (fm.source_type ?? fm.source) as VaultRecord["source_type"],
     source: stringFromUnknown(fm.source),
     source_id: opt(fm.source_id),
-    title: opt(fm.title),
     status: fm.status as VaultRecord["status"],
     category:
       fm.category !== undefined ? stringFromUnknown(fm.category) : undefined,

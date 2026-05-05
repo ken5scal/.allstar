@@ -4,7 +4,7 @@ import { itemToVaultRecord } from "../../src/jobs/collect.js";
 import type { SourceItem } from "../../src/types.js";
 
 describe("itemToVaultRecord metadata", () => {
-  it("stores title and source metadata for frontmatter", () => {
+  it("stores source metadata for frontmatter", () => {
     const item: SourceItem = {
       source: "rss",
       sourceId: "hn",
@@ -18,7 +18,6 @@ describe("itemToVaultRecord metadata", () => {
 
     const rec = itemToVaultRecord(item, "tick-1", "job-1");
 
-    expect(rec.title).toBe("Example Article Title");
     expect(rec.source_id).toBe("hn");
     expect(rec.source).toBe("https://example.com/posts/1");
   });

@@ -161,7 +161,6 @@ export interface VaultRecord {
   source_type: ObsidianSourceKind;
   source: string;
   source_id?: string;
-  title?: string;
   status: "captured" | "summarized" | "failed";
   category?: string;
   tags: string[];

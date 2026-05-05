@@ -77,8 +77,8 @@ describe("manual run with multiple rss sources", () => {
     const vault = createVaultMockAdapter(vaultPath);
     const notes = await vault.listNotePathsUnder(path.join("Sources", "RSS"));
     expect(notes.length).toBe(4);
-    expect(notes.some((n) => n.includes("rss-a-"))).toBe(true);
-    expect(notes.some((n) => n.includes("rss-b-"))).toBe(true);
+    expect(notes.some((n) => n.includes("Hello RSS - rss-a"))).toBe(true);
+    expect(notes.some((n) => n.includes("Hello RSS - rss-b"))).toBe(true);
 
     const state = new SqliteStateRepository(stateDsn);
     const runA = await state.lastJobRun("collect-rss:rss-a");

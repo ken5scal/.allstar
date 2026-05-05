@@ -22,7 +22,6 @@ export function itemToVaultRecord(
     source_type: item.source,
     source: item.canonicalUrl ?? item.source_item_key,
     source_id: item.sourceId,
-    title: item.title,
     status: "captured",
     tags: [],
     attachments: [],
@@ -38,7 +37,8 @@ export function itemToVaultRecord(
 
 export function noteRelPathForItem(item: SourceItem): string {
   const dir = vaultSubdirForSource(item.source);
-  const base = safeNoteBasename(`${item.sourceId}-${item.source_item_key}`);
+  const readable = item.title || item.source_item_key;
+  const base = safeNoteBasename(`${readable} - ${item.sourceId}`);
   return path.join(dir, `${base}.md`);
 }
 

@@ -35,7 +35,7 @@ export async function runDigestJob(args: {
       if (!rec) continue;
       const created = new Date(rec.created_at);
       if (created >= since) {
-        lines.push(`- [[${rel.replace(/\.md$/, "")}]] — ${rec.source_type} ${rec.title ?? rec.source}`);
+        lines.push(`- [[${rel.replace(/\.md$/, "")}]] — ${rec.source_type} ${rec.source}`);
       }
     }
   }
@@ -50,7 +50,6 @@ export async function runDigestJob(args: {
     "schema_version: 1",
     `source_type: "manual-web"`,
     `source: "${digestSource}"`,
-    `title: "Digest (${args.job.cadence})"`,
     'status: "captured"',
     "tags: []",
     "attachments: []",
