@@ -22,7 +22,7 @@
     "smoke": "tsx src/main.ts tick --config test/fixtures/config.mock.yaml"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "dependencies": {
     "@cursor/sdk": "^1.0.12",
