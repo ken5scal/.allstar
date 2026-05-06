@@ -198,7 +198,7 @@ async function runOrchestration(
     validateConfigEnv(cfg);
   } catch (e) {
     log.error({ error_type: errorType(e), msg: "config_error" });
-    process.stderr.write(String(e) + "\n");
+    process.stderr.write("Configuration error. Check configuration and required environment variables.\n");
     return 1;
   }
 
