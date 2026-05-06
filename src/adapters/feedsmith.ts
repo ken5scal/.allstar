@@ -62,11 +62,11 @@ function htmlToPlainText(html: string): string {
 function stripNoisyHtmlBlocks(html: string): string {
   return html
     .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ")
-    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, " ")
-    .replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, " ");
+    .replace(/<script\b[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\s*\/\s*style\s*>/gi, " ")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\s*\/\s*noscript\s*>/gi, " ")
+    .replace(/<svg\b[^>]*>[\s\S]*?<\s*\/\s*svg\s*>/gi, " ")
+    .replace(/<template\b[^>]*>[\s\S]*?<\s*\/\s*template\s*>/gi, " ");
 }
 
 function longestMatch(html: string, regex: RegExp): string {
@@ -83,15 +83,21 @@ function longestMatch(html: string, regex: RegExp): string {
 
 function extractArticleTextFromHtml(html: string): string {
   const sanitized = stripNoisyHtmlBlocks(html);
-  const articleHtml = longestMatch(sanitized, /<article\b[^>]*>([\s\S]*?)<\/article>/gi);
+  const articleHtml = longestMatch(
+    sanitized,
+    /<article\b[^>]*>([\s\S]*?)<\s*\/\s*article\s*>/gi,
+  );
   if (articleHtml.trim().length > 0) {
     return htmlToPlainText(articleHtml);
   }
-  const mainHtml = longestMatch(sanitized, /<main\b[^>]*>([\s\S]*?)<\/main>/gi);
+  const mainHtml = longestMatch(
+    sanitized,
+    /<main\b[^>]*>([\s\S]*?)<\s*\/\s*main\s*>/gi,
+  );
   if (mainHtml.trim().length > 0) {
     return htmlToPlainText(mainHtml);
   }
-  const body = sanitized.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
+  const body = sanitized.match(/<body\b[^>]*>([\s\S]*?)<\s*\/\s*body\s*>/i);
   if (body?.[1]) {
     return htmlToPlainText(body[1]);
   }
