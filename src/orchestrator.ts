@@ -72,6 +72,10 @@ function aggregateExit(failures: FailureReport[]): ExitSeverity {
   return 0;
 }
 
+function errorType(e: unknown): string {
+  return e instanceof Error ? e.name : typeof e;
+}
+
 type ManualJobResult = {
   jobId: string;
   sourceId?: string;
@@ -193,7 +197,7 @@ async function runOrchestration(
     cfg = normalizeConfig(raw, configBaseDir);
     validateConfigEnv(cfg);
   } catch (e) {
-    log.error({ err: e, msg: "config_error" });
+    log.error({ error_type: errorType(e), msg: "config_error" });
     process.stderr.write(String(e) + "\n");
     return 1;
   }
@@ -792,7 +796,7 @@ async function runOrchestration(
     });
     return code;
   } catch (e) {
-    log.error({ err: e, msg: "orchestration_error" });
+    log.error({ error_type: errorType(e), msg: "orchestration_error" });
     process.stderr.write(String(e) + "\n");
     return 1;
   } finally {
