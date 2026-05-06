@@ -28,6 +28,11 @@ export function renderVaultNote(r: VaultRecord): string {
   if (r.source_id !== undefined) fm.source_id = r.source_id;
   if (r.origin !== undefined) fm.origin = r.origin;
   if (r.category !== undefined) fm.category = r.category;
+  if (r.content_status !== undefined) fm.content_status = r.content_status;
+  if (r.content_issue_note !== undefined) fm.content_issue_note = r.content_issue_note;
+  if (r.content_issue_marked_at !== undefined) {
+    fm.content_issue_marked_at = r.content_issue_marked_at;
+  }
   if (r.published_at !== undefined) fm.published_at = r.published_at;
   const bodyParts = [
     "",
@@ -118,6 +123,14 @@ export function parseVaultNote(markdown: string): VaultRecord | null {
       ? (fm.attachments as VaultRecord["attachments"])
       : [],
     summary: stringFromUnknown(fm.summary),
+    content_status:
+      fm.content_status === "ok" ||
+      fm.content_status === "suspected_missing" ||
+      fm.content_status === "confirmed_missing" ?
+        fm.content_status
+      : undefined,
+    content_issue_note: opt(fm.content_issue_note),
+    content_issue_marked_at: opt(fm.content_issue_marked_at),
     published_at: opt(fm.published_at),
     captured_at,
     created_at: createdAt,

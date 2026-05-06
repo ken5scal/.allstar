@@ -72,6 +72,10 @@ describe("config", () => {
         master_path: "./tag-master.min.yaml",
         max_tags: 3,
       },
+      categories: {
+        mode: "local_master",
+        master_path: "./category-master.min.yaml",
+      },
     };
     const cfg = normalizeConfig(raw, mockCfgDir);
     expect(cfg.ai.provider).toBe("cursor");
@@ -80,6 +84,10 @@ describe("config", () => {
       mode: "local_master",
       master_path: path.resolve(mockCfgDir, "tag-master.min.yaml"),
       max_tags: 3,
+    });
+    expect(cfg.ai.categories).toEqual({
+      mode: "local_master",
+      master_path: path.resolve(mockCfgDir, "category-master.min.yaml"),
     });
   });
 

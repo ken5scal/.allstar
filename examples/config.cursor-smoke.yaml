@@ -42,6 +42,9 @@ ai:
     mode: "local_master"
     master_path: "../config/tag-master.yaml"
     max_tags: 5
+  categories:
+    mode: "local_master"
+    master_path: "../config/category-master.yaml"
 
 jobs:
   - id: "summarize-main"

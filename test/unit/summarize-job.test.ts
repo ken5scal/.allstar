@@ -9,6 +9,7 @@ import { createAiMockAdapter } from "../../src/adapters/ai-mock.js";
 import { createVaultMockAdapter } from "../../src/adapters/vault-mock.js";
 import { loadConfigFile, normalizeConfig } from "../../src/config.js";
 import { runSummarizeJob } from "../../src/jobs/summarize.js";
+import type { AppLogger } from "../../src/logger.js";
 import { parseVaultNote, renderVaultNote } from "../../src/note.js";
 import { OBSFLOW_RECORD_KIND, type VaultRecord } from "../../src/types.js";
 
@@ -40,6 +41,9 @@ describe("runSummarizeJob", () => {
       tags: [],
       attachments: [],
       summary: "",
+      content_status: "suspected_missing",
+      content_issue_note: "本文が短すぎる",
+      content_issue_marked_at: "2026-05-06T13:00:00.000Z",
       captured_at: "2026-05-05T10:13:16.968Z",
       created_at: "2026-05-05T10:13:16.968Z",
       updated_at: "2026-05-05T10:13:16.968Z",
@@ -55,6 +59,18 @@ describe("runSummarizeJob", () => {
     cfg.defaults.vault_path = tmp;
 
     const vault = createVaultMockAdapter(tmp);
+    const events: Array<Record<string, unknown>> = [];
+    const logger = {
+      info(row: Record<string, unknown>) {
+        events.push(row);
+      },
+      debug(row: Record<string, unknown>) {
+        events.push(row);
+      },
+      error(row: Record<string, unknown>) {
+        events.push(row);
+      },
+    } as unknown as AppLogger;
     const ai = createAiMockAdapter({
       handler: () => ({
         summary: "- 要点1\n- 要点2",
@@ -64,8 +80,16 @@ describe("runSummarizeJob", () => {
       }),
     });
 
-    const n = await runSummarizeJob({ cfg, vault, ai, jobId: "t" });
-    expect(n).toBe(1);
+    const result = await runSummarizeJob({
+      cfg,
+      vault,
+      ai,
+      jobId: "t",
+      jobRunId: "jr-test",
+      logger,
+    });
+    expect(result.processed).toBe(1);
+    expect(result.failed).toBe(0);
 
     const md = fs.readFileSync(dst, "utf8");
     expect(md).toContain("Second body.");
@@ -76,9 +100,39 @@ describe("runSummarizeJob", () => {
     expect(rec?.tags).toEqual(["cursor", "llm/ai"]);
     expect(rec?.category).toBe("blogs");
     expect(rec?.aiSummary).toBe("");
+    expect(rec?.content_status).toBe("suspected_missing");
+    expect(rec?.content_issue_note).toBe("本文が短すぎる");
+    expect(rec?.content_issue_marked_at).toBe("2026-05-06T13:00:00.000Z");
 
     const body = md.split("---").slice(2).join("---");
     const rawSection = body.match(/## Raw Content\s*\n([\s\S]*?)(?=\n## |\s*$)/)?.[1];
     expect(rawSection?.trim()).toBe("Second body.");
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          msg: "summarize_job_start",
+          job_run_id: "jr-test",
+          job_id: "t",
+          target_total: 1,
+        }),
+        expect.objectContaining({
+          msg: "summarize_item_start",
+          vault_rel_path: rel,
+          index: 1,
+          target_total: 1,
+        }),
+        expect.objectContaining({
+          msg: "summarize_item_success",
+          vault_rel_path: rel,
+          index: 1,
+        }),
+        expect.objectContaining({
+          msg: "summarize_job_done",
+          processed: 1,
+          skipped: 0,
+          failed: 0,
+        }),
+      ]),
+    );
   });
 });

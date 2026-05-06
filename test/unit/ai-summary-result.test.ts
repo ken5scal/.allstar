@@ -4,10 +4,12 @@ import {
   extractJsonObjectFromAgentText,
   normalizeAiSummaryResult,
   parseAndNormalizeAiSummaryJson,
+  pickCategoryFromMaster,
   pickTagsFromMaster,
 } from "../../src/ai-summary-result.js";
 
 const master = new Set(["alpha", "beta", "gamma"]);
+const categoryMaster = new Set(["blogs", "papers"]);
 
 describe("ai-summary-result", () => {
   it("extractJsonObjectFromAgentText handles fenced json", () => {
@@ -19,6 +21,11 @@ describe("ai-summary-result", () => {
     expect(
       pickTagsFromMaster(["beta", "nope", "alpha", "beta"], master, 2),
     ).toEqual(["beta", "alpha"]);
+  });
+
+  it("pickCategoryFromMaster keeps master-only category", () => {
+    expect(pickCategoryFromMaster("blogs", categoryMaster)).toBe("blogs");
+    expect(pickCategoryFromMaster("unknown", categoryMaster)).toBeUndefined();
   });
 
   it("normalizeAiSummaryResult rejects empty summary", () => {
@@ -39,13 +46,23 @@ describe("ai-summary-result", () => {
         summary: "- x",
         short_summary: "line",
         tags: ["gamma", "unknown"],
-        category: "cat",
+        category: "blogs",
       }) +
       "\n```";
-    const out = parseAndNormalizeAiSummaryJson(text, master, 5);
+    const out = parseAndNormalizeAiSummaryJson(text, master, 5, categoryMaster);
     expect(out.summary).toBe("- x");
     expect(out.short_summary).toBe("line");
     expect(out.tags).toEqual(["gamma"]);
-    expect(out.category).toBe("cat");
+    expect(out.category).toBe("blogs");
+  });
+
+  it("parseAndNormalizeAiSummaryJson drops master-external category", () => {
+    const text = JSON.stringify({
+      summary: "ok",
+      tags: [],
+      category: "unknown",
+    });
+    const out = parseAndNormalizeAiSummaryJson(text, master, 5, categoryMaster);
+    expect(out.category).toBeUndefined();
   });
 });

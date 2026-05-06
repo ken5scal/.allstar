@@ -1,6 +1,7 @@
 import { Agent } from "@cursor/sdk";
 
 import { parseAndNormalizeAiSummaryJson } from "../ai-summary-result.js";
+import { categoryMasterSet, loadCategoryMasterFile } from "../category-master.js";
 import { loadTagMasterFile, tagMasterSet } from "../tag-master.js";
 import type { AiSummaryResult, VaultRecord } from "../types.js";
 import type { AiAdapter } from "./interfaces.js";
@@ -8,7 +9,11 @@ import type { AiAdapter } from "./interfaces.js";
 const DEFAULT_MODEL_ID = "composer-2";
 const MAX_RAW_CHARS = 120_000;
 
-function buildSummarizePrompt(record: VaultRecord, tagBulletLines: string): string {
+function buildSummarizePrompt(
+  record: VaultRecord,
+  tagBulletLines: string,
+  categoryBulletLines: string,
+): string {
   const meta = [
     `source_type: ${record.source_type}`,
     `source: ${record.source}`,
@@ -35,17 +40,20 @@ function buildSummarizePrompt(record: VaultRecord, tagBulletLines: string): stri
     "",
     "Step 1: Read the raw content below and write a clear Japanese summary (`summary`). Use concise Japanese markdown bullet lines in `summary` if helpful.",
     'Step 2: Using ONLY the summary you wrote in Step 1 (not the raw content), plus the record metadata, pick tags from the allowed tag master list. Tags MUST be copied exactly as shown (character-for-character). If nothing fits, return an empty array.',
-    "Step 3: Optionally set `category` as a short string when it helps organization; omit or null if unsure.",
+    "Step 3: Pick `category` from the allowed category master list only. If unsure, return null.",
     "",
     "Rules:",
     "- Output a single JSON object with keys: summary, short_summary, tags, category.",
     "- `summary` is required, non-empty, and Japanese.",
     '- `short_summary` is one short Japanese line (optional).',
     "- `tags` is an array of strings from the master list only; no invented tags; max number of tags will be enforced downstream but pick the smallest useful set.",
-    "- `category` is optional string or null.",
+    "- `category` is one string from the category master list only, or null; never invent categories.",
     "",
     "Allowed tags (master):",
     tagBulletLines,
+    "",
+    "Allowed categories (master):",
+    categoryBulletLines,
     "",
     "Record metadata:",
     meta,
@@ -59,16 +67,22 @@ export function createAiCursorAdapter(opts: {
   apiKey: string;
   model?: string;
   tagMasterPath: string;
+  categoryMasterPath: string;
   maxTags: number;
 }): AiAdapter {
   const masterFile = loadTagMasterFile(opts.tagMasterPath);
   const master = tagMasterSet(masterFile);
   const tagBulletLines = masterFile.tags.map((t) => `- ${JSON.stringify(t)}`).join("\n");
+  const categoryMasterFile = loadCategoryMasterFile(opts.categoryMasterPath);
+  const categoryMaster = categoryMasterSet(categoryMasterFile);
+  const categoryBulletLines = categoryMasterFile.categories
+    .map((c) => `- ${JSON.stringify(c)}`)
+    .join("\n");
   const modelId = opts.model?.trim() || DEFAULT_MODEL_ID;
 
   return {
     async summarize(record: VaultRecord): Promise<AiSummaryResult> {
-      const prompt = buildSummarizePrompt(record, tagBulletLines);
+      const prompt = buildSummarizePrompt(record, tagBulletLines, categoryBulletLines);
       let result;
       try {
         result = await Agent.prompt(prompt, {
@@ -88,7 +102,7 @@ export function createAiCursorAdapter(opts: {
       if (!text) {
         throw new Error("Cursor AI returned empty result text");
       }
-      return parseAndNormalizeAiSummaryJson(text, master, opts.maxTags);
+      return parseAndNormalizeAiSummaryJson(text, master, opts.maxTags, categoryMaster);
     },
   };
 }

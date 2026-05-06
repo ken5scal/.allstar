@@ -369,3 +369,145 @@ bases:
 - 案 B の custom sub-agent 運用詳細。
 - 同一記事再取得時の細かな更新方針。
 - ファイル名衝突時の suffix 方式。
+
+## 9. 次スコープ外だが先に管理する運用バックログ
+
+このセクションは「今は作らないが、次の設計・実装で必ず扱う課題」を管理する。
+管理先を本ドキュメントに置く理由は、以下 3 点がいずれも Base 表示・frontmatter schema・AI 要約/分類方針にまたがるため。
+
+### 9.1 P0: summarize 実行の可観測性（失敗時に記事特定できること）
+
+現状課題:
+
+- `summarize-main` の開始/成功ログは見えるが、実行対象件数と対象記事の内訳が追いづらい。
+- 失敗時に「どの記事（どの noteRelPath）が落ちたか」をログだけで即特定しづらい。
+- `runSummarizeJob` 内に記事単位の構造化ログがなく、`tick_run_id` / `job_run_id` / Vault 相対パスが結合されていない。
+- manual 実行サマリでは summarize の `processed/skipped/failed` 件数が見えない。
+
+次スコープでやること:
+
+- summarize 開始時に `summarize_job_start` を出す。
+  - 必須フィールド: `job_run_id`, `job_id`, `records_root`, `target_total`
+- 記事単位で以下のイベントを出す。
+  - `summarize_item_start`
+  - `summarize_item_success`
+  - `summarize_item_failed`
+  - 必須フィールド: `job_run_id`, `job_id`, `vault_rel_path`, `index`, `target_total`, `source_id`, `source`, `source_type`
+- スキップを明示する場合は `summarize_item_skipped` を出す。
+  - 必須フィールド: `job_run_id`, `job_id`, `vault_rel_path`, `skip_reason`
+- summarize 完了時に `summarize_job_done` を出す。
+  - 必須フィールド: `job_run_id`, `job_id`, `processed`, `skipped`, `failed`
+- manual 実行サマリにも summarize の `processed/skipped/failed` 件数を出す。
+
+実装メモ:
+
+- `orchestrator` の summarize ブロックで採番済みの `tick_run_id` / `job_run_id` を `runSummarizeJob` に渡す。
+- `runSummarizeJob` はまず `captured` 対象を列挙し、`target_total` を確定してから処理を開始する。
+- 失敗時は `summarize_item_failed` に `vault_rel_path` を必ず含め、ログ検索だけで対象記事を特定できるようにする。
+
+完了条件:
+
+- 失敗した summarize 実行 1 回について、ログ検索だけで失敗記事を一意に特定できる。
+- `job_run_id` から対象件数、処理済み件数、失敗件数を追える。
+- `obsflow run --targets summarize` の結果表示で summarize の件数が分かる。
+
+### 9.2 P1: RSS 本文欠落を人間がマーキングできるプロパティ
+
+現状課題:
+
+- RSS の本文抽出は完全ではなく、記事によって中身が薄い/欠落する。
+- ただし現段階で 100% カバレッジ実装は現実的でない。
+- 読者が本文欠落に気づいた時点で、Base 上に後続対応の印を残す仕組みがない。
+
+次スコープでやること:
+
+- Obsidian Base から人間が付与できる任意 frontmatter を追加する。
+  - `content_status`: string (optional)
+  - `content_issue_note`: string (optional)
+  - `content_issue_marked_at`: ISO8601 string (optional)
+- `content_status` は単一値 Text とし、許容値は以下にする。
+  - 未設定: 未フラグ。通常状態。課題ビューには出さない。
+  - `ok`: 本文に問題なし、または手動補正済み。
+  - `suspected_missing`: 本文欠落/薄さの疑い。未検証。
+  - `confirmed_missing`: 本文欠落が確定。後続対応対象。
+- Base view に `content_status`, `content_issue_marked_at`, `content_issue_note` を表示する。
+- `suspected_missing` / `confirmed_missing` のみを抽出する「本文取得課題」ビューを追加する。
+
+実装メモ:
+
+- 既存ノートにはキーを追加しない。未設定を正規状態として扱う。
+- `content_*` は人間が付与する運用プロパティなので、collect や summarize の通常更新で消さない。
+- `status` は処理状態のまま維持し、本文品質状態とは混ぜない。
+- 正式実装時は `docs/OBSIDIAN_SCHEMA.md`, `src/types.ts`, `src/note.ts`, Base の order/filter を更新する。
+
+完了条件:
+
+- 読者が「本文欠落」を見つけた時に、Obsidian 上で即時マーキングし、あとで機械的に一覧化できる。
+- 既存ノートに `content_*` がなくても parse/render/Base 表示が壊れない。
+- `confirmed_missing` のノートを Base で一覧化し、補足メモまで追える。
+
+### 9.3 P1: category 推論の統制（schema enum への準拠）
+
+現状課題:
+
+- category が過推論で広がり、`docs/OBSIDIAN_SCHEMA.md` の enum から逸脱しうる。
+- 現在の AI 正規化では `tags` は master で制約される一方、`category` は非空文字列なら通ってしまう。
+
+次スコープでやること:
+
+- `tags` と同様に category もローカル正本化する。
+- 例: `config/category-master.yaml` を追加し、`docs/OBSIDIAN_SCHEMA.md` の enum を初期値として管理する。
+- 初期値は `docs/OBSIDIAN_SCHEMA.md` §2.3 と完全一致させる。
+  - `books`
+  - `reports`
+  - `presentations`
+  - `podcasts`
+  - `papers`
+  - `standards`
+  - `specs`
+  - `blogs`
+  - `oss`
+  - `policies`
+  - `lectures`
+  - `hands_on`
+  - `sns`
+- AI には master 内からのみ category を選ばせる。迷う場合は `null` を返させる。
+- master 外 category は永続化しない。
+- 既存 category があり、AI が有効な category を返さない場合は、既存値を維持する方針を第一候補にする。
+- `config` parse/validate と adapter 正規化で二重に制約をかける。
+
+実装メモ:
+
+- `tag-master` と同じパターンを再利用する。
+  - loader: empty / duplicate / invalid shape を検出する。
+  - config: `ai.categories.mode: local_master`, `ai.categories.master_path`
+  - adapter: prompt に `Allowed categories (master):` を列挙する。
+  - normalize: master 外を破棄する。
+- `docs/OBSIDIAN_SCHEMA.md` と `config/category-master.yaml` の差分を検出するテストまたはレビュー手順を用意する。
+- 既存Vaultのカテゴリを棚卸しし、schema外の値は人手で enum にマッピングする。
+
+完了条件:
+
+- 新規 summarize 後の `category` が schema enum/master 以外になることがない。
+- `category-master.yaml` と `docs/OBSIDIAN_SCHEMA.md` の enum が同期している。
+- AI が未知カテゴリを返しても、frontmatter へ未知値が保存されない。
+
+### 9.4 推奨実装順序
+
+1. **P0: summarize 可観測性**
+   - 失敗時の調査効率に直結するため最優先。
+   - 機能挙動を変えずログと manual summary を増やすだけなので、小さい PR にしやすい。
+2. **P1: category master 化**
+   - AI によるデータ品質劣化を止めるガードなので、早めに入れる。
+   - `tag-master` の実装パターンを流用できる。
+3. **P1: content_status 系プロパティ**
+   - 人間運用のための schema/Base 拡張。Base view と運用フローを含むため、category とは別 PR がよい。
+
+### 9.5 PR 分割方針
+
+- PR 1: summarize 可観測性
+  - 主な対象: `src/jobs/summarize.ts`, `src/orchestrator.ts`, summarize job tests, `README.md` / `TEST_PLAN.md`
+- PR 2: category master
+  - 主な対象: `config/category-master.yaml`, `src/config.ts`, `src/ai-summary-result.ts`, `src/adapters/ai-cursor.ts`, category tests, schema docs
+- PR 3: content issue marking
+  - 主な対象: `docs/OBSIDIAN_SCHEMA.md`, `src/types.ts`, `src/note.ts`, Base config/order/filter, parse/render tests
