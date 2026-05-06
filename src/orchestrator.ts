@@ -72,10 +72,6 @@ function aggregateExit(failures: FailureReport[]): ExitSeverity {
   return 0;
 }
 
-function toSafeErrorLog(_e: unknown): { error_type: string; msg: string } {
-  return { error_type: "error", msg: "orchestration_error" };
-}
-
 type ManualJobResult = {
   jobId: string;
   sourceId?: string;
@@ -196,8 +192,8 @@ async function runOrchestration(
     const raw = loadConfigFile(configPath);
     cfg = normalizeConfig(raw, configBaseDir);
     validateConfigEnv(cfg);
-  } catch (e) {
-    log.error({ error_type: errorType(e), msg: "config_error" });
+  } catch {
+    log.error({ msg: "config_error" });
     process.stderr.write("Configuration error. Check configuration and required environment variables.\n");
     return 1;
   }
@@ -795,8 +791,8 @@ async function runOrchestration(
       failed: outcomeTotals.failed,
     });
     return code;
-  } catch (e) {
-    log.error(toSafeErrorLog(e));
+  } catch {
+    log.error({ msg: "orchestration_error" });
     process.stderr.write("orchestration_error\n");
     return 1;
   } finally {
