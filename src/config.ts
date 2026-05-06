@@ -529,7 +529,7 @@ function envNamePresent(name: string | undefined): boolean {
 export function validateConfigEnv(cfg: ObsflowConfig): void {
   if (cfg.defaults.vault_provider === "agent") {
     const k = cfg.defaults.auth.cursor_api_key_env ?? "CURSOR_API_KEY";
-    if (!envNamePresent(k)) throw new Error(`missing env ${k} for vault_provider=agent`);
+    if (!envNamePresent(k)) throw new Error("missing required environment variable for vault_provider=agent");
   }
 
   const alertProv =
@@ -537,17 +537,17 @@ export function validateConfigEnv(cfg: ObsflowConfig): void {
   if (alertProv === "slack") {
     const k = cfg.defaults.alert.slack_webhook_env ?? cfg.defaults.auth.slack_webhook_env;
     const name = k ?? "SLACK_WEBHOOK_URL";
-    if (!envNamePresent(name)) throw new Error(`missing env ${name} for alert slack provider`);
+    if (!envNamePresent(name)) throw new Error("missing required environment variable for alert slack provider");
   }
 
   if (cfg.ai.provider === "real") {
     const k = cfg.defaults.auth.ai_api_key_env ?? "AI_API_KEY";
-    if (!envNamePresent(k)) throw new Error(`missing env ${k} for ai provider=real`);
+    if (!envNamePresent(k)) throw new Error("missing required environment variable for ai provider=real");
   }
 
   if (cfg.ai.provider === "cursor") {
     const k = cfg.defaults.auth.cursor_api_key_env ?? "CURSOR_API_KEY";
-    if (!envNamePresent(k)) throw new Error(`missing env ${k} for ai provider=cursor`);
+    if (!envNamePresent(k)) throw new Error("missing required environment variable for ai provider=cursor");
     const tm = cfg.ai.tags;
     if (!tm) throw new Error("ai provider=cursor requires tags configuration");
     try {
@@ -562,7 +562,7 @@ export function validateConfigEnv(cfg: ObsflowConfig): void {
 
   if (cfg.sources.x.provider === "x-sdk") {
     const bt = cfg.defaults.auth.x_bearer_token_env ?? "X_BEARER_TOKEN";
-    if (!envNamePresent(bt)) throw new Error(`missing env ${bt} for x-sdk (search/lists)`);
+    if (!envNamePresent(bt)) throw new Error("missing required environment variable for x-sdk (search/lists)");
 
     const anyBookmarks = cfg.sources.x.bookmarks.some((b) => b.enabled);
     if (anyBookmarks) {
@@ -570,7 +570,7 @@ export function validateConfigEnv(cfg: ObsflowConfig): void {
         cfg.defaults.auth.x_oauth2_access_token_env ?? "X_OAUTH2_ACCESS_TOKEN";
       if (!envNamePresent(at)) {
         throw new Error(
-          `missing env ${at} for x-sdk bookmarks (user OAuth2 access token required)`,
+          "missing required environment variable for x-sdk bookmarks (user OAuth2 access token required)",
         );
       }
     }
