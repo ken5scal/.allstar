@@ -186,8 +186,7 @@ function stripNoisyHtmlBlocks(html: string): string {
     .replace(/<audio\b[^>]*>[\s\S]*?<\s*\/\s*audio\b[^>]*>/gi, " ")
     .replace(/<button\b[^>]*>[\s\S]*?<\s*\/\s*button\b[^>]*>/gi, " ")
     .replace(/<select\b[^>]*>[\s\S]*?<\s*\/\s*select\b[^>]*>/gi, " ")
-    .replace(/<textarea\b[^>]*>[\s\S]*?<\s*\/\s*textarea\b[^>]*>/gi, " ")
-    .replace(/<input\b[^>]*\/?>/gi, " ");
+    .replace(/<textarea\b[^>]*>[\s\S]*?<\s*\/\s*textarea\b[^>]*>/gi, " ");
 
   const keywords = NOISE_ATTR_KEYWORDS.join("|");
   const blockTagPattern = new RegExp(
