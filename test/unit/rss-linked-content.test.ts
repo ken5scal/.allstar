@@ -139,15 +139,13 @@ describe("rss linked article content", () => {
 
     const hydrated = await hydrateRssItemWithLinkedContent(item, { timeoutMs: 3000 });
     expect(hydrated).toEqual(item);
-    expect(mockFetch).toHaveBeenCalledWith(
-      item.canonicalUrl,
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          accept: expect.stringContaining("text/html"),
-          "user-agent": expect.stringContaining("Mozilla/5.0"),
-        }),
-      }),
-    );
+    const calls = mockFetch.mock.calls as Array<
+      [string, { headers?: Record<string, string> }]
+    >;
+    const [calledUrl, init] = calls[0];
+    expect(calledUrl).toBe(item.canonicalUrl);
+    expect(init.headers?.accept).toContain("text/html");
+    expect(init.headers?.["user-agent"]).toContain("Mozilla/5.0");
   });
 
   it("removes share and audio boilerplate from article chrome", async () => {
