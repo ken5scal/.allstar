@@ -37,6 +37,25 @@ async function startFixtureServer(): Promise<{
         res.end(xml);
         return;
       }
+      if (url.pathname === "/feed-interstitial.xml") {
+        const xml = `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+  <channel>
+    <title>Fixture Feed</title>
+    <item>
+      <title>Interstitial Item</title>
+      <guid>fixture-item-interstitial</guid>
+      <link>http://${host}/article/interstitial</link>
+      <description>Feed summary should survive interstitial pages.</description>
+      <pubDate>Wed, 06 May 2026 11:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>`;
+        res.statusCode = 200;
+        res.setHeader("content-type", "application/rss+xml; charset=utf-8");
+        res.end(xml);
+        return;
+      }
       if (url.pathname === "/article/1") {
         const html = `<!doctype html>
 <html>
@@ -62,6 +81,24 @@ async function startFixtureServer(): Promise<{
       </ul>
       <p><a href="https://example.com/ref">Reference link</a></p>
     </article>
+  </body>
+</html>`;
+        res.statusCode = 200;
+        res.setHeader("content-type", "text/html; charset=utf-8");
+        res.end(html);
+        return;
+      }
+      if (url.pathname === "/article/interstitial") {
+        const html = `<!doctype html>
+<html>
+  <head>
+    <meta http-equiv="refresh" content="5; URL='/article/interstitial?bm-verify=AAQAAAAN_____'">
+    <script>function triggerInterstitialChallenge() {}</script>
+  </head>
+  <body>
+    <p>Powered and protected by</p>
+    <img id="akam-logo" src="/_sec/akamai-logo.svg" alt="Powered by Akamai">
+    <a href="https://www.akamai.com/privacy">Privacy</a>
   </body>
 </html>`;
         res.statusCode = 200;
@@ -179,6 +216,84 @@ describe("collect-rss linked article content e2e", () => {
 
       const state = new SqliteStateRepository(stateDsn);
       const run = await state.lastJobRun("collect-rss:rss-linked-e2e");
+      expect(run?.status).toBe("success");
+      await state.close();
+    } finally {
+      await fixtureServer.close();
+    }
+  });
+
+  it("falls back to feed summary when linked article fetch returns an interstitial", async () => {
+    const fixtureServer = await startFixtureServer();
+    try {
+      const tmp = mkdtempSync(path.join(os.tmpdir(), "obsflow-rss-e2e-"));
+      const configPath = path.join(tmp, "config.yaml");
+      const vaultPath = path.join(tmp, "vault");
+      const stateDsn = path.join(tmp, "state.db");
+
+      const rawConfig = {
+        version: 1,
+        timezone: "UTC",
+        defaults: {
+          vault_path: "./vault",
+          vault_provider: "mock",
+          timezone: "UTC",
+          rss_provider: "feedsmith",
+          state: {
+            driver: "sqlite",
+            dsn: "./state.db",
+          },
+          auth: {
+            cursor_api_key_env: "CURSOR_API_KEY",
+            x_bearer_token_env: "X_BEARER_TOKEN",
+            x_oauth2_access_token_env: "X_OAUTH2_ACCESS_TOKEN",
+          },
+          alert: {
+            provider: "mock",
+          },
+        },
+        sources: {
+          rss: [
+            {
+              id: "rss-interstitial-e2e",
+              enabled: true,
+              schedule: "* * * * *",
+              url: `${fixtureServer.baseUrl}/feed-interstitial.xml`,
+              fetch_article_content: true,
+              article_fetch_timeout_ms: 3000,
+            },
+          ],
+          x: {
+            provider: "mock",
+            search: [],
+            lists: [],
+            bookmarks: [],
+          },
+        },
+        ai: {
+          provider: "mock",
+        },
+        jobs: [],
+      };
+
+      writeFileSync(configPath, YAML.stringify(rawConfig), "utf8");
+
+      const code = await runManual(configPath, tmp, ["collect-rss"]);
+      expect(code).toBe(0);
+
+      const vault = createVaultMockAdapter(vaultPath);
+      const notes = await vault.listNotePathsUnder("src");
+      expect(notes).toHaveLength(1);
+      const rec = await vault.readRecord(notes[0]);
+      expect(rec).not.toBeNull();
+      if (!rec) throw new Error("expected captured record");
+      expect(rec.rawContent).toContain("Feed summary should survive interstitial pages.");
+      expect(rec.rawContent).not.toContain("Powered and protected by");
+      expect(rec.rawContent).not.toContain("Powered by Akamai");
+      expect(rec.rawContent).not.toContain("/_sec/akamai-logo.svg");
+
+      const state = new SqliteStateRepository(stateDsn);
+      const run = await state.lastJobRun("collect-rss:rss-interstitial-e2e");
       expect(run?.status).toBe("success");
       await state.close();
     } finally {

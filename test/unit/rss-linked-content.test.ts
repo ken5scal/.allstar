@@ -107,6 +107,47 @@ describe("rss linked article content", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps feed summary when linked article fetch returns an interstitial page", async () => {
+    const item = {
+      source: "rss" as const,
+      sourceId: "sample",
+      source_item_key: "item-akamai",
+      content_hash: "sha256:old-akamai",
+      title: "245TB Micron 6600 ION Data Center SSD Now Shipping",
+      rawText: "Feed summary from Micron.",
+      canonicalUrl: "https://investors.micron.com/news-releases/news-release-details/ssd",
+    };
+    const interstitialHtml = `<!doctype html>
+      <html>
+        <head>
+          <meta http-equiv="refresh" content="5; URL='/news?bm-verify=AAQAAAAN_____'">
+          <script>function triggerInterstitialChallenge() {}</script>
+        </head>
+        <body>
+          <p>Powered and protected by</p>
+          <img id="akam-logo" src="/_sec/akamai-logo.svg" alt="Powered by Akamai">
+          <a href="https://www.akamai.com/privacy">Privacy</a>
+        </body>
+      </html>`;
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      new Response(interstitialHtml, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const hydrated = await hydrateRssItemWithLinkedContent(item, { timeoutMs: 3000 });
+    expect(hydrated).toEqual(item);
+    const calls = mockFetch.mock.calls as Array<
+      [string, { headers?: Record<string, string> }]
+    >;
+    const [calledUrl, init] = calls[0];
+    expect(calledUrl).toBe(item.canonicalUrl);
+    expect(init.headers?.accept).toContain("text/html");
+    expect(init.headers?.["user-agent"]).toContain("Mozilla/5.0");
+  });
+
   it("removes share and audio boilerplate from article chrome", async () => {
     const item = {
       source: "rss" as const,

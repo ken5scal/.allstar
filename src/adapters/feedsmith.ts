@@ -4,6 +4,16 @@ import { rssContentHash } from "../hash.js";
 import type { ObsidianSourceKind, SourceItem } from "../types.js";
 
 const DEFAULT_ARTICLE_FETCH_TIMEOUT_MS = 12_000;
+const LINKED_ARTICLE_FETCH_HEADERS: Record<string, string> = {
+  accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+  "accept-language": "en-US,en;q=0.9,ja;q=0.8",
+  "cache-control": "no-cache",
+  pragma: "no-cache",
+  "upgrade-insecure-requests": "1",
+  "user-agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+};
 
 function pickText(...vals: (string | undefined)[]): string {
   for (const v of vals) {
@@ -133,6 +143,10 @@ function stripTagsToText(html: string): string {
     if (!inTag) out += ch;
   }
   return out.replace(/[<>]/g, "");
+}
+
+function normalizedHtmlText(html: string): string {
+  return normalizeInlineText(decodeHtmlEntities(stripTagsToText(html))).toLowerCase();
 }
 
 function escapeMarkdownLabel(text: string): string {
@@ -441,6 +455,38 @@ function extractArticleFromHtml(html: string): { markdown: string; title?: strin
   return { markdown, title };
 }
 
+function isLikelyInterstitialPage(html: string): boolean {
+  const lowerHtml = html.toLowerCase();
+  if (
+    lowerHtml.includes("bm-verify=") ||
+    lowerHtml.includes("triggerinterstitialchallenge") ||
+    lowerHtml.includes("/_sec/akamai-logo.svg")
+  ) {
+    return true;
+  }
+
+  const text = normalizedHtmlText(stripNoisyHtmlBlocks(html));
+  if (text.includes("powered and protected by") && lowerHtml.includes("akamai")) {
+    return true;
+  }
+  if (text.includes("access denied") && text.includes("reference #")) {
+    return true;
+  }
+  if (text.includes("just a moment") && lowerHtml.includes("cloudflare")) {
+    return true;
+  }
+  if (
+    text.includes("checking if the site connection is secure") ||
+    text.includes("checking your browser") ||
+    text.includes("enable javascript and cookies to continue") ||
+    text.includes("verify you are human")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function isBoilerplateLine(line: string): boolean {
   if (BOILERPLATE_LINE_PATTERNS.some((p) => p.test(line))) return true;
   if (BOILERPLATE_SUBSTRING_PATTERNS.some((p) => p.test(line))) return true;
@@ -473,14 +519,13 @@ async function fetchLinkedArticleText(
   try {
     const res = await fetch(url, {
       signal: ctrl.signal,
-      headers: {
-        accept: "text/html,application/xhtml+xml",
-      },
+      headers: LINKED_ARTICLE_FETCH_HEADERS,
     });
     if (!res.ok) return null;
     const contentType = res.headers.get("content-type") ?? "";
     if (!contentType.includes("text/html")) return null;
     const html = await res.text();
+    if (isLikelyInterstitialPage(html)) return null;
     const article = extractArticleFromHtml(html);
     return article.markdown.length > 0 ? article : null;
   } catch {
