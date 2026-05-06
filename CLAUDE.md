@@ -47,6 +47,7 @@ Skills are located in `.claude/skills/kiro-*/SKILL.md`
 - `kiro-review` — task-local adversarial review protocol used by reviewer subagents
 - `kiro-debug` — root-cause-first debug protocol used by debugger subagents
 - `kiro-verify-completion` — fresh-evidence gate before success or completion claims
+- `test-depth-selector` — choose and justify unit/integration/E2E test updates based on change risk and flow boundaries
 - **If there is even a 1% chance a skill applies to the current task, invoke it.** Do not skip skills because the task seems simple.
 
 ## Development Rules
