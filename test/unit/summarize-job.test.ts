@@ -9,7 +9,8 @@ import { createAiMockAdapter } from "../../src/adapters/ai-mock.js";
 import { createVaultMockAdapter } from "../../src/adapters/vault-mock.js";
 import { loadConfigFile, normalizeConfig } from "../../src/config.js";
 import { runSummarizeJob } from "../../src/jobs/summarize.js";
-import { parseVaultNote } from "../../src/note.js";
+import { parseVaultNote, renderVaultNote } from "../../src/note.js";
+import { OBSFLOW_RECORD_KIND, type VaultRecord } from "../../src/types.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.join(here, "..", "..");
@@ -24,10 +25,30 @@ describe("runSummarizeJob", () => {
   it("updates frontmatter summary, tags, category; removes AI Summary section; keeps raw body", async () => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), "obsflow-sum-"));
     const rel = "src/rss/sample/2026/05/05/second.md";
-    const src = path.join(repo, "test/fixtures/test-output-vault", rel);
     const dst = path.join(tmp, rel);
     fs.mkdirSync(path.dirname(dst), { recursive: true });
-    fs.copyFileSync(src, dst);
+    const capturedRecord: VaultRecord = {
+      schema_version: 1,
+      record_kind: OBSFLOW_RECORD_KIND,
+      base_ids: ["all-records"],
+      source_type: "rss",
+      source: "https://example.com/p/2",
+      source_id: "sample",
+      source_group: "rss",
+      origin: "example.com",
+      status: "captured",
+      tags: [],
+      attachments: [],
+      summary: "",
+      captured_at: "2026-05-05T10:13:16.968Z",
+      created_at: "2026-05-05T10:13:16.968Z",
+      updated_at: "2026-05-05T10:13:16.968Z",
+      tick_run_id: "tick-test",
+      job_run_id: "job-test",
+      rawContent: "Second body.",
+      aiSummary: "Old AI summary",
+    };
+    fs.writeFileSync(dst, renderVaultNote(capturedRecord), "utf8");
 
     const raw = loadConfigFile(path.join(repo, "test/fixtures/config.mock.yaml"));
     const cfg = normalizeConfig(raw, path.join(repo, "test/fixtures"));
