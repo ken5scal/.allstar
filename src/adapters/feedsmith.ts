@@ -118,10 +118,21 @@ function decodeHtmlEntities(text: string): string {
 }
 
 function stripTagsToText(html: string): string {
-  return html
-    .replace(/<\s*br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/[<>]/g, "");
+  const withBreaks = html.replace(/<\s*br\s*\/?>/gi, "\n");
+  let out = "";
+  let inTag = false;
+  for (const ch of withBreaks) {
+    if (ch === "<") {
+      inTag = true;
+      continue;
+    }
+    if (ch === ">") {
+      inTag = false;
+      continue;
+    }
+    if (!inTag) out += ch;
+  }
+  return out.replace(/[<>]/g, "");
 }
 
 function escapeMarkdownLabel(text: string): string {
