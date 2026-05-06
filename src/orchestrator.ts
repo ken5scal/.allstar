@@ -61,7 +61,7 @@ class DedupAlert implements AlertAdapter {
 function envVal(name: string | undefined, fallback: string): string {
   const k = name ?? fallback;
   const v = process.env[k];
-  if (!v) throw new Error(`missing env ${k}`);
+  if (!v) throw new Error("missing required environment variable");
   return v;
 }
 
@@ -72,12 +72,8 @@ function aggregateExit(failures: FailureReport[]): ExitSeverity {
   return 0;
 }
 
-function errorType(e: unknown): string {
-  return e instanceof Error ? e.name : typeof e;
-}
-
-function toSafeErrorLog(e: unknown): { error_type: string; msg: string } {
-  return { error_type: errorType(e), msg: "orchestration_error" };
+function toSafeErrorLog(_e: unknown): { error_type: string; msg: string } {
+  return { error_type: "error", msg: "orchestration_error" };
 }
 
 type ManualJobResult = {
