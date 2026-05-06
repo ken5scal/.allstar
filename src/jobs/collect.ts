@@ -2,7 +2,10 @@ import type { ObsflowConfig, SourceItem, VaultRecord } from "../types.js";
 import { OBSFLOW_RECORD_KIND } from "../types.js";
 import { recordNoteRelPath, sourceFamily } from "../paths.js";
 import { createRssMockAdapter } from "../adapters/rss-mock.js";
-import { fetchRssItems } from "../adapters/feedsmith.js";
+import {
+  fetchRssItems,
+  hydrateRssItemWithLinkedContent,
+} from "../adapters/feedsmith.js";
 import type {
   StateRepository,
   StateTx,
@@ -76,38 +79,44 @@ async function processNewItems(args: {
   tickRunId: string;
   jobRunId: string;
   cursorBuilder: (items: SourceItem[]) => string;
+  itemTransformer?: (item: SourceItem) => Promise<SourceItem>;
 }): Promise<{ processed: number; skipped: number }> {
   let processed = 0;
   let skipped = 0;
   for (const item of args.items) {
-    const shouldSkip = await args.state.inTx((tx: StateTx) => {
-      if (tx.seenSourceItem(args.checkpointSourceId, item.source_item_key)) {
-        return true;
-      }
-      if (tx.seenContentHash(args.checkpointSourceId, item.content_hash)) {
-        return true;
-      }
-      return false;
-    });
-    if (shouldSkip) {
+    const sourceSeen = await args.state.inTx((tx: StateTx) =>
+      tx.seenSourceItem(args.checkpointSourceId, item.source_item_key),
+    );
+    if (sourceSeen) {
       skipped += 1;
       continue;
     }
+
+    const transformed =
+      args.itemTransformer ? await args.itemTransformer(item) : item;
+    const hashSeen = await args.state.inTx((tx: StateTx) =>
+      tx.seenContentHash(args.checkpointSourceId, transformed.content_hash),
+    );
+    if (hashSeen) {
+      skipped += 1;
+      continue;
+    }
+
     const capturedAt = new Date();
     const rec = itemToVaultRecord(
-      item,
+      transformed,
       args.tickRunId,
       args.jobRunId,
       args.cfg,
       capturedAt,
     );
-    const rel = recordNoteRelPath(args.cfg, item, capturedAt);
+    const rel = recordNoteRelPath(args.cfg, transformed, capturedAt);
     await args.vault.upsertRecord(rec, rel);
     await args.state.inTx((tx) => {
       tx.markSourceItemSeen(
         args.checkpointSourceId,
-        item.source_item_key,
-        item.content_hash,
+        transformed.source_item_key,
+        transformed.content_hash,
       );
     });
     processed += 1;
@@ -130,6 +139,10 @@ export async function collectRssSource(args: {
 }): Promise<{ processed: number; skipped: number }> {
   const prov =
     args.rss.provider ?? args.cfg.defaults.rss_provider;
+  const fetchArticleContent = args.rss.fetch_article_content ?? true;
+  const articleFetchTimeoutMs =
+    args.rss.article_fetch_timeout_ms ?? 12_000;
+
   let items: SourceItem[];
   if (prov === "mock") {
     const fix = args.rss.fixture;
@@ -153,6 +166,13 @@ export async function collectRssSource(args: {
     vault: args.vault,
     tickRunId: args.tickRunId,
     jobRunId: args.jobRunId,
+    itemTransformer:
+      prov === "feedsmith" && fetchArticleContent ?
+        (item) =>
+          hydrateRssItemWithLinkedContent(item, {
+            timeoutMs: articleFetchTimeoutMs,
+          })
+      : undefined,
     cursorBuilder: (it) =>
       JSON.stringify({
         polled_at: new Date().toISOString(),

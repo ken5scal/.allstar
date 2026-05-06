@@ -369,12 +369,24 @@ export function normalizeConfig(raw: unknown, cwd: string): ObsflowConfig {
 
   const rss: RssSourceConfig[] = rssRaw.map((row, i) => {
     if (!isRecord(row)) throw new Error(`sources.rss[${i}] invalid`);
+    const articleFetchTimeoutMs = optNum(row.article_fetch_timeout_ms);
+    if (
+      articleFetchTimeoutMs !== undefined &&
+      (!Number.isFinite(articleFetchTimeoutMs) || articleFetchTimeoutMs <= 0)
+    ) {
+      throw new Error(
+        `sources.rss[${i}].article_fetch_timeout_ms must be a positive number`,
+      );
+    }
     return {
       id: str(row.id, `sources.rss[${i}].id`),
       enabled: bool(row.enabled, `sources.rss[${i}].enabled`),
       schedule: str(row.schedule, `sources.rss[${i}].schedule`),
       url: optStr(row.url),
       fixture: row.fixture ? path.resolve(cwd, str(row.fixture, `sources.rss[${i}].fixture`)) : undefined,
+      fetch_article_content:
+        typeof row.fetch_article_content === "boolean" ? row.fetch_article_content : undefined,
+      article_fetch_timeout_ms: articleFetchTimeoutMs,
       provider:
         row.provider === "feedsmith" || row.provider === "mock"
           ? row.provider

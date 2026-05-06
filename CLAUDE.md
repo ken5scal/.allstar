@@ -47,6 +47,7 @@ Skills are located in `.claude/skills/kiro-*/SKILL.md`
 - `kiro-review` — task-local adversarial review protocol used by reviewer subagents
 - `kiro-debug` — root-cause-first debug protocol used by debugger subagents
 - `kiro-verify-completion` — fresh-evidence gate before success or completion claims
+- `test-depth-selector` — choose and justify unit/integration/E2E test updates based on change risk and flow boundaries
 - **If there is even a 1% chance a skill applies to the current task, invoke it.** Do not skip skills because the task seems simple.
 
 ## Development Rules
@@ -54,6 +55,19 @@ Skills are located in `.claude/skills/kiro-*/SKILL.md`
 - Human review required each phase; use `-y` only for intentional fast-track
 - Keep steering current and verify alignment with `/kiro-spec-status`
 - Follow the user's instructions precisely, and within that scope act autonomously: gather the necessary context and complete the requested work end-to-end in this run, asking questions only when essential information is missing or the instructions are critically ambiguous.
+
+### Test Depth Policy (Unit / Integration / E2E)
+
+- Every behavior change MUST update or add unit tests for deterministic logic.
+- Add integration tests when behavior depends on interactions across modules/adapters but does not require full command orchestration.
+- Add E2E tests when **any** of the following is true:
+  - The change affects command-level behavior (for example, `run --targets ...`, orchestration sequencing, or final exit/result behavior).
+  - The change adds or modifies external I/O in a user-visible flow (network fetch, vault/file output, DB/checkpoint writes, provider boundary effects).
+  - Correctness depends on multi-step fallback/error paths spanning more than one component.
+  - A new config flag toggles runtime behavior and a regression would not be caught by unit-only coverage.
+  - Acceptance criteria are about final captured output artifacts rather than an isolated helper function.
+- E2E tests should prefer deterministic local fixtures (for example, in-test HTTP servers) and verify both final artifact content and critical side effects (such as job status/checkpoint updates).
+- If E2E is warranted but cannot run in the current environment, explicitly report the gap and provide the exact CI/local command needed; do not claim full validation.
 
 ## Steering Configuration
 - Load entire `.kiro/steering/` as project memory

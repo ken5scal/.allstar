@@ -41,6 +41,25 @@ describe("config", () => {
     );
   });
 
+  it("parses rss linked-article fetch settings", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
+      sources: { rss: Array<Record<string, unknown>> };
+    };
+    raw.sources.rss[0].fetch_article_content = false;
+    raw.sources.rss[0].article_fetch_timeout_ms = 2500;
+    const cfg = normalizeConfig(raw, mockCfgDir);
+    expect(cfg.sources.rss[0].fetch_article_content).toBe(false);
+    expect(cfg.sources.rss[0].article_fetch_timeout_ms).toBe(2500);
+  });
+
+  it("rejects non-positive rss article fetch timeout", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
+      sources: { rss: Array<Record<string, unknown>> };
+    };
+    raw.sources.rss[0].article_fetch_timeout_ms = 0;
+    expect(() => normalizeConfig(raw, mockCfgDir)).toThrow(/positive number/);
+  });
+
   it("rejects bases path not ending in .base", () => {
     const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
       bases: unknown;
