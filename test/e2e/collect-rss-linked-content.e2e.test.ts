@@ -45,8 +45,11 @@ async function startFixtureServer(): Promise<{
     <header>navigation links</header>
     <article>
       <h1>Fixture Item</h1>
-      <p>Full linked article paragraph line 1.</p>
-      <p>Full linked article paragraph line 2.</p>
+      <p>Full linked article paragraph line 1 with <strong>bold</strong>.</p>
+      <ul>
+        <li>Bullet line in article</li>
+      </ul>
+      <p><a href="https://example.com/ref">Reference link</a></p>
     </article>
   </body>
 </html>`;
@@ -149,8 +152,12 @@ describe("collect-rss linked article content e2e", () => {
       const rec = await vault.readRecord(notes[0]);
       expect(rec).not.toBeNull();
       if (!rec) throw new Error("expected captured record");
-      expect(rec.rawContent).toContain("Full linked article paragraph line 1.");
-      expect(rec.rawContent).toContain("Full linked article paragraph line 2.");
+      expect(rec.rawContent).toContain("# Fixture Item");
+      expect(rec.rawContent).toContain(
+        "Full linked article paragraph line 1 with **bold**.",
+      );
+      expect(rec.rawContent).toContain("- Bullet line in article");
+      expect(rec.rawContent).toContain("[Reference link](https://example.com/ref)");
       expect(rec.rawContent).not.toContain("Feed summary snippet that should be replaced.");
 
       const state = new SqliteStateRepository(stateDsn);

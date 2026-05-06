@@ -33,8 +33,15 @@ describe("rss linked article content", () => {
           <header>navigation</header>
           <article>
             <h1>Hello World</h1>
-            <p>Linked story body line 1.</p>
-            <p>Linked story body line 2 &amp; details.</p>
+            <p>Linked story body line 1 with <strong>bold</strong> and <em>italic</em>.</p>
+            <p><del>Removed</del> <u>Underline</u> <mark>Marked</mark>.</p>
+            <ul>
+              <li>Bullet one</li>
+              <li><input type="checkbox" checked />Done task</li>
+            </ul>
+            <p>Reference: <a href="https://example.com/docs">docs</a>.</p>
+            <p><img src="https://example.com/image.png" alt="Hero image" /></p>
+            <pre><code class="language-ts">const value = 1;\nconsole.log(value);</code></pre>
           </article>
         </body>
       </html>`;
@@ -58,8 +65,15 @@ describe("rss linked article content", () => {
     expect(items).toHaveLength(1);
 
     const hydrated = await hydrateRssItemWithLinkedContent(items[0], { timeoutMs: 3000 });
-    expect(hydrated.rawText).toContain("Linked story body line 1.");
-    expect(hydrated.rawText).toContain("Linked story body line 2 & details.");
+    expect(hydrated.rawText).toContain("# Hello World");
+    expect(hydrated.rawText).toContain("Linked story body line 1 with **bold** and *italic*.");
+    expect(hydrated.rawText).toContain("~~Removed~~ <u>Underline</u> <mark>Marked</mark>.");
+    expect(hydrated.rawText).toContain("- Bullet one");
+    expect(hydrated.rawText).toContain("- [x] Done task");
+    expect(hydrated.rawText).toContain("[docs](https://example.com/docs)");
+    expect(hydrated.rawText).toContain("![Hero image](https://example.com/image.png)");
+    expect(hydrated.rawText).toContain("```ts");
+    expect(hydrated.rawText).toContain("const value = 1;");
     expect(hydrated.rawText).not.toContain("navigation");
     expect(hydrated.content_hash).toBe(
       rssContentHash({
