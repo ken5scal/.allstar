@@ -25,7 +25,7 @@ import {
   collectXSearch,
 } from "./jobs/collect.js";
 import { runDigestJob } from "./jobs/digest.js";
-import { runSummarizeJob } from "./jobs/summarize.js";
+import { runSummarizeJob, SummarizeJobError } from "./jobs/summarize.js";
 
 const perTickLoggers = new Map<string, ReturnType<typeof createRootLogger>>();
 
@@ -78,6 +78,7 @@ type ManualJobResult = {
   status: "success" | "failed";
   processed?: number;
   skipped?: number;
+  failed?: number;
   error?: string;
 };
 
@@ -104,7 +105,7 @@ function printManualSummary(args: {
       const scope = r.sourceId ? `${r.jobId} [${r.sourceId}]` : r.jobId;
       if (r.processed !== undefined) {
         lines.push(
-          `- ${scope}: ${r.status} processed=${r.processed} skipped=${r.skipped ?? 0}`,
+          `- ${scope}: ${r.status} processed=${r.processed} skipped=${r.skipped ?? 0} failed=${r.failed ?? 0}`,
         );
       } else if (r.error) {
         lines.push(`- ${scope}: ${r.status} error=${r.error}`);
@@ -249,6 +250,7 @@ async function runOrchestration(
             apiKey: envVal(cfg.defaults.auth.cursor_api_key_env, "CURSOR_API_KEY"),
             model: cfg.ai.model,
             tagMasterPath: cfg.ai.tags!.master_path,
+            categoryMasterPath: cfg.ai.categories!.master_path,
             maxTags: cfg.ai.tags!.max_tags,
           });
         default: {
@@ -650,9 +652,22 @@ async function runOrchestration(
           status: "running",
         });
         try {
-          await runSummarizeJob({ cfg, vault, ai, jobId: job.id });
+          const result = await runSummarizeJob({
+            cfg,
+            vault,
+            ai,
+            jobId: job.id,
+            jobRunId: jr,
+            logger: getTickLogger(tickRunId),
+          });
           if (mode.mode === "manual") {
-            manualResults.push({ jobId: job.id, status: "success" });
+            manualResults.push({
+              jobId: job.id,
+              status: "success",
+              processed: result.processed,
+              skipped: result.skipped,
+              failed: result.failed,
+            });
           }
           outcomeTotals.total += 1;
           outcomeTotals.success += 1;
@@ -667,7 +682,18 @@ async function runOrchestration(
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (mode.mode === "manual") {
-            manualResults.push({ jobId: job.id, status: "failed", error: msg });
+            manualResults.push({
+              jobId: job.id,
+              status: "failed",
+              error: msg,
+              ...(e instanceof SummarizeJobError ?
+                {
+                  processed: e.result.processed,
+                  skipped: e.result.skipped,
+                  failed: e.result.failed,
+                }
+              : {}),
+            });
           }
           outcomeTotals.total += 1;
           outcomeTotals.failed += 1;

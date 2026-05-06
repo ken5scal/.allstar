@@ -1,0 +1,18 @@
+version: 1
+source: obsidian-schema-category
+updated_at: "2026-05-06"
+
+categories:
+  - "books"
+  - "reports"
+  - "presentations"
+  - "podcasts"
+  - "papers"
+  - "standards"
+  - "specs"
+  - "blogs"
+  - "oss"
+  - "policies"
+  - "lectures"
+  - "hands_on"
+  - "sns"

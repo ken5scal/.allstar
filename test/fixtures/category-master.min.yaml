@@ -1,0 +1,8 @@
+version: 1
+source: test
+updated_at: "2026-01-01"
+
+categories:
+  - "blogs"
+  - "papers"
+  - "sns"

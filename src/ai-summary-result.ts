@@ -36,6 +36,20 @@ export function pickTagsFromMaster(
   return out;
 }
 
+export function pickCategoryFromMaster(
+  category: unknown,
+  master: Set<string> | undefined,
+): string | undefined {
+  if (category === undefined || category === null) return undefined;
+  if (typeof category !== "string") {
+    throw new Error("AI output category must be a string when set");
+  }
+  const c = category.trim();
+  if (!c.length) return undefined;
+  if (master && !master.has(c)) return undefined;
+  return c;
+}
+
 /**
  * Validate JSON shape from the AI and enforce tag master + max_tags.
  * @throws if summary is empty or tags is not an array (when present).
@@ -44,6 +58,7 @@ export function normalizeAiSummaryResult(
   parsed: unknown,
   master: Set<string>,
   maxTags: number,
+  categoryMaster?: Set<string>,
 ): AiSummaryResult {
   if (!isRecord(parsed)) throw new Error("AI output JSON must be an object");
   const summaryRaw = parsed.summary;
@@ -60,14 +75,7 @@ export function normalizeAiSummaryResult(
     if (ss.length) short_summary = ss;
   }
   const tags = pickTagsFromMaster(parsed.tags, master, maxTags);
-  let category: string | undefined;
-  if (parsed.category !== undefined && parsed.category !== null) {
-    if (typeof parsed.category !== "string") {
-      throw new Error("AI output category must be a string when set");
-    }
-    const c = parsed.category.trim();
-    if (c.length) category = c;
-  }
+  const category = pickCategoryFromMaster(parsed.category, categoryMaster);
   return {
     summary,
     ...(short_summary ? { short_summary } : {}),
@@ -80,6 +88,7 @@ export function parseAndNormalizeAiSummaryJson(
   agentText: string,
   master: Set<string>,
   maxTags: number,
+  categoryMaster?: Set<string>,
 ): AiSummaryResult {
   const jsonText = extractJsonObjectFromAgentText(agentText);
   let parsed: unknown;
@@ -89,5 +98,5 @@ export function parseAndNormalizeAiSummaryJson(
     const msg = e instanceof Error ? e.message : String(e);
     throw new Error(`AI output is not valid JSON: ${msg}`, { cause: e });
   }
-  return normalizeAiSummaryResult(parsed, master, maxTags);
+  return normalizeAiSummaryResult(parsed, master, maxTags, categoryMaster);
 }

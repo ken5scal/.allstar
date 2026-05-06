@@ -52,6 +52,9 @@ ai:
     mode: "local_master"
     master_path: "/Users/k.suzuki/workspace/.allstar/config/tag-master.yaml"
     max_tags: 5
+  categories:
+    mode: "local_master"
+    master_path: "/Users/k.suzuki/workspace/.allstar/config/category-master.yaml"
 
 jobs:
   - id: "summarize-main"
@@ -91,4 +94,9 @@ bases:
           - source_type
           - source_id
           - status
+          - category
+          - tags
+          - summary
+          - content_status
+          - content_issue_marked_at
           - captured_at

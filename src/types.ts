@@ -11,6 +11,7 @@ export type RssProviderName = "mock" | "feedsmith";
 export type XProviderName = "mock" | "x-sdk";
 export type AiProviderName = "mock" | "real" | "cursor";
 export type AiTagsMode = "local_master";
+export type AiCategoriesMode = "local_master";
 export type AlertProviderName = "mock" | "slack";
 export type VaultProviderName = "mock" | "agent";
 
@@ -95,10 +96,17 @@ export interface AiTagsConfig {
   max_tags: number;
 }
 
+export interface AiCategoriesConfig {
+  mode: AiCategoriesMode;
+  /** Absolute path after config-dir resolution. */
+  master_path: string;
+}
+
 export interface AiConfig {
   provider: AiProviderName;
   model?: string;
   tags?: AiTagsConfig;
+  categories?: AiCategoriesConfig;
 }
 
 export type DigestCadence =
@@ -233,6 +241,12 @@ export interface VaultRecord {
   tags: string[];
   attachments: Array<{ name: string; path: string }>;
   summary: string;
+  /** Human-marked content quality state; absent means not flagged. */
+  content_status?: "ok" | "suspected_missing" | "confirmed_missing";
+  /** Human note about missing/thin extracted content. */
+  content_issue_note?: string;
+  /** When a human marked the content issue (ISO8601). */
+  content_issue_marked_at?: string;
   /** Content publish time when known (ISO8601). */
   published_at?: string;
   /** When the record was captured into the vault (ISO8601). */

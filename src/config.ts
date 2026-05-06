@@ -5,6 +5,7 @@ import YAML from "yaml";
 
 import type {
   AiConfig,
+  AiCategoriesConfig,
   AiTagsConfig,
   BaseConfig,
   BaseViewConfig,
@@ -17,6 +18,7 @@ import type {
   XSourcesConfig,
 } from "./types.js";
 import { OBSFLOW_RECORD_KIND } from "./types.js";
+import { loadCategoryMasterFile } from "./category-master.js";
 import { loadTagMasterFile } from "./tag-master.js";
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -88,6 +90,23 @@ function parseAiTagsBlock(
   };
 }
 
+function parseAiCategoriesBlock(
+  raw: unknown,
+  configBaseDir: string,
+  defaultMasterRel: string,
+): AiCategoriesConfig {
+  if (!isRecord(raw)) throw new Error("ai.categories must be a mapping");
+  if (raw.mode !== "local_master") {
+    throw new Error('ai.categories.mode must be "local_master"');
+  }
+  const masterRel = optStr(raw.master_path)?.trim() || defaultMasterRel;
+  if (!masterRel.length) throw new Error("ai.categories.master_path must be non-empty");
+  return {
+    mode: "local_master",
+    master_path: path.resolve(configBaseDir, masterRel),
+  };
+}
+
 function parseAiProviderName(raw: unknown): AiConfig["provider"] {
   if (raw === "mock" || raw === "real" || raw === "cursor") return raw;
   const got = typeof raw === "string" ? raw : String(raw);
@@ -114,6 +133,8 @@ function defaultBasesConfig(): BaseConfig[] {
             "category",
             "tags",
             "summary",
+            "content_status",
+            "content_issue_marked_at",
             "captured_at",
             "updated_at",
           ],
@@ -469,8 +490,12 @@ export function normalizeConfig(raw: unknown, cwd: string): ObsflowConfig {
   const provider = parseAiProviderName(aiRaw.provider);
   const model = optStr(aiRaw.model)?.trim() || undefined;
   let tags: AiTagsConfig | undefined;
+  let categories: AiCategoriesConfig | undefined;
   if (aiRaw.tags !== undefined && aiRaw.tags !== null) {
     tags = parseAiTagsBlock(aiRaw.tags, cwd, "config/tag-master.yaml");
+  }
+  if (aiRaw.categories !== undefined && aiRaw.categories !== null) {
+    categories = parseAiCategoriesBlock(aiRaw.categories, cwd, "config/category-master.yaml");
   }
   if (provider === "cursor" && !tags) {
     tags = {
@@ -479,10 +504,17 @@ export function normalizeConfig(raw: unknown, cwd: string): ObsflowConfig {
       max_tags: 5,
     };
   }
+  if (provider === "cursor" && !categories) {
+    categories = {
+      mode: "local_master",
+      master_path: path.resolve(cwd, "config/category-master.yaml"),
+    };
+  }
   const ai: AiConfig = {
     provider,
     ...(model ? { model } : {}),
     ...(tags ? { tags } : {}),
+    ...(categories ? { categories } : {}),
   };
 
   const jobsRaw = raw.jobs;
@@ -555,6 +587,16 @@ export function validateConfigEnv(cfg: ObsflowConfig): void {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       throw new Error(`tag master not loadable (${tm.master_path}): ${msg}`, {
+        cause: e,
+      });
+    }
+    const cm = cfg.ai.categories;
+    if (!cm) throw new Error("ai provider=cursor requires categories configuration");
+    try {
+      loadCategoryMasterFile(cm.master_path);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`category master not loadable (${cm.master_path}): ${msg}`, {
         cause: e,
       });
     }
