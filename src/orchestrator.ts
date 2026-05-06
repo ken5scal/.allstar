@@ -76,6 +76,10 @@ function errorType(e: unknown): string {
   return e instanceof Error ? e.name : typeof e;
 }
 
+function toSafeErrorLog(e: unknown): { error_type: string; msg: string } {
+  return { error_type: errorType(e), msg: "orchestration_error" };
+}
+
 type ManualJobResult = {
   jobId: string;
   sourceId?: string;
@@ -796,8 +800,8 @@ async function runOrchestration(
     });
     return code;
   } catch (e) {
-    log.error({ error_type: errorType(e), msg: "orchestration_error" });
-    process.stderr.write(String(e) + "\n");
+    log.error(toSafeErrorLog(e));
+    process.stderr.write("orchestration_error\n");
     return 1;
   } finally {
     state.releaseTickLock(tickRunId);
