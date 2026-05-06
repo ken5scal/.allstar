@@ -29,17 +29,18 @@ export function renderVaultNote(r: VaultRecord): string {
   if (r.origin !== undefined) fm.origin = r.origin;
   if (r.category !== undefined) fm.category = r.category;
   if (r.published_at !== undefined) fm.published_at = r.published_at;
-  const body = [
+  const bodyParts = [
     "",
     RAW_SECTION,
     "",
     r.rawContent.trim(),
     "",
-    AI_SECTION,
-    "",
-    r.aiSummary.trim(),
-    "",
-  ].join("\n");
+  ];
+  const aiSummary = r.aiSummary.trim();
+  if (aiSummary.length > 0) {
+    bodyParts.push(AI_SECTION, "", aiSummary, "");
+  }
+  const body = bodyParts.join("\n");
   return `---\n${YAML.stringify(fm).trim()}\n---${body}`;
 }
 
@@ -47,16 +48,21 @@ export function renderVaultNote(r: VaultRecord): string {
 export function replaceAiSummarySection(markdown: string, newAiSummary: string): string {
   const marker = `\n${AI_SECTION}\n`;
   const startIdx = markdown.indexOf(marker);
+  const nextSummary = newAiSummary.trim();
   if (startIdx === -1) {
-    return `${markdown.trimEnd()}\n\n${AI_SECTION}\n\n${newAiSummary.trim()}\n`;
+    if (!nextSummary.length) return markdown;
+    return `${markdown.trimEnd()}\n\n${AI_SECTION}\n\n${nextSummary}\n`;
   }
   const afterHeading = startIdx + marker.length;
   const rest = markdown.slice(afterHeading);
   const nextH2 = rest.search(/\n## /);
   const end =
     nextH2 === -1 ? markdown.length : startIdx + marker.length + nextH2;
+  if (!nextSummary.length) {
+    return `${markdown.slice(0, startIdx).trimEnd()}${markdown.slice(end)}`;
+  }
   const before = markdown.slice(0, startIdx + marker.length);
-  return `${before}\n${newAiSummary.trim()}\n${markdown.slice(end)}`;
+  return `${before}\n${nextSummary}\n${markdown.slice(end)}`;
 }
 
 function defaultSourceGroupForKind(kind: VaultRecord["source_type"]): string {

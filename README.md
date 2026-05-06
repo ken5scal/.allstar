@@ -23,7 +23,52 @@ npm run obsflow -- run --config examples/config.yaml
 npm run obsflow -- run --config examples/config.yaml --targets collect-rss
 ```
 
-Optional credentials via `.env` (`CURSOR_API_KEY`, `SLACK_WEBHOOK_URL`, `X_BEARER_TOKEN`, etc.). See [TEST_PLAN.md](./TEST_PLAN.md) for test and smoke commands. Example launchd: [launchd/obsflow.example.plist](launchd/obsflow.example.plist).
+Optional credentials via `.env` (`CURSOR_API_KEY`, `SLACK_WEBHOOK_URL`, `X_BEARER_TOKEN`, etc.). See [TEST_PLAN.md](./TEST_PLAN.md) for test and smoke commands. Example launchd: [launchd/obsflow.plist.example](launchd/obsflow.plist.example).
+
+## Operations Quickstart
+
+### Clear state DB
+
+`examples/config.yaml` currently points `defaults.state.dsn` to:
+
+`/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db`
+
+```bash
+mv "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db" "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+rm -f "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db-wal" "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db-shm"
+```
+
+### Local one-shot run
+
+```bash
+cd /Users/k.suzuki/workspace/.allstar
+npm run obsflow -- validate --config examples/config.yaml
+OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config examples/config.yaml --targets collect-rss,summarize
+```
+
+### Register launchd
+
+```bash
+cd /Users/k.suzuki/workspace/.allstar
+mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs/obsflow"
+cp "launchd/obsflow.plist.example" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
+NODE_BIN="$(which node)"
+REPO_DIR="/Users/k.suzuki/workspace/.allstar"
+sed -i '' "s|{{WORKING_DIRECTORY}}|$REPO_DIR|g" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
+sed -i '' "s|/Users/you/.nodebrew/current/bin/node|$NODE_BIN|g" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
+plutil -lint "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
+launchctl bootout "gui/$(id -u)" com.local.obsflow 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
+launchctl kickstart -k "gui/$(id -u)/com.local.obsflow"
+```
+
+To inspect:
+
+```bash
+launchctl print "gui/$(id -u)/com.local.obsflow"
+tail -n 100 "$HOME/Library/Logs/obsflow/obsflow.out.jsonl"
+tail -n 100 "$HOME/Library/Logs/obsflow/obsflow.err.jsonl"
+```
 
 - 設定ファイル内の相対パス（例: RSS mock の `fixture`、`state.dsn`）は **その YAML ファイルがあるディレクトリ** を基準に解決される（`obsflow tick --config path/to/config.yaml` 想定）。
 - `base_ids` は現時点では任意の補助プロパティです。既定 Base は `record_kind` で機能しますが、将来の複数 Base 振り分けに備えて保持しています。

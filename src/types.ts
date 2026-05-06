@@ -9,7 +9,8 @@ export type ObsidianSourceKind =
 
 export type RssProviderName = "mock" | "feedsmith";
 export type XProviderName = "mock" | "x-sdk";
-export type AiProviderName = "mock" | "real";
+export type AiProviderName = "mock" | "real" | "cursor";
+export type AiTagsMode = "local_master";
 export type AlertProviderName = "mock" | "slack";
 export type VaultProviderName = "mock" | "agent";
 
@@ -87,8 +88,17 @@ export interface XSourcesConfig {
   bookmarks: XBookmarksConfig[];
 }
 
+export interface AiTagsConfig {
+  mode: AiTagsMode;
+  /** Absolute path after config-dir resolution. */
+  master_path: string;
+  max_tags: number;
+}
+
 export interface AiConfig {
   provider: AiProviderName;
+  model?: string;
+  tags?: AiTagsConfig;
 }
 
 export type DigestCadence =

@@ -16,9 +16,11 @@ export async function runSummarizeJob(args: {
       if (!rec) continue;
       if (rec.status !== "captured") continue;
       const out = await args.ai.summarize(rec);
-      await args.vault.updateAiSummary(rel, out.summary, {
+      await args.vault.updateAiSummary(rel, "", {
         status: "summarized",
-        summary: out.short_summary ?? out.summary.slice(0, 500),
+        summary: out.summary,
+        tags: out.tags ?? [],
+        ...(out.category?.trim() ? { category: out.category.trim() } : {}),
         updated_at: new Date().toISOString(),
       });
       n += 1;

@@ -262,7 +262,7 @@ obsflow tick --config ./config.yaml
 3. `bases` 設定に従い、Obsidian Bases (`.base`) を `create_if_missing` / `managed` で保証する (`reference` はスキップ)。
 4. `launchd` の起動時刻を基準に、各 `schedule` の due 判定を実施。
 5. source 収集 (RSS/X) を順次実行し、Vault へ 1 レコード単位で Cursor SDK + Obsidian Skills を使って保存する。
-6. due の summarize ジョブを実行し、AI Summary の更新内容を生成する。
+6. due の summarize ジョブを実行し、日本語要約・タグ・カテゴリの更新内容を生成する。
 7. due の digest ジョブを実行。
 8. 失敗があれば Alert で Slack 通知。
 
@@ -295,7 +295,7 @@ flowchart TD
 
     L --> M{Summarize due?}
     M -- Yes --> N[Run summarize]
-    N --> O[Generate AI Summary updates]
+    N --> O[Generate Japanese summary/tag updates]
     M -- No --> P{Digest due?}
     O --> P
 
@@ -321,12 +321,12 @@ flowchart TD
 - 設定 YAML 内の相対パス（例: RSS `fixture`, `defaults.state.dsn`）は **設定ファイルがあるディレクトリ**を基準に解決される。
 - 1 ソース = 1 ノートで作成し、source item key を frontmatter に保持する。
 
-### 9.2 AI 要約追記/更新
+### 9.2 AI 要約更新
 
-- summarize 対象ノートに `## AI Summary` セクションを持たせる。
-- セクションが未作成なら追加、既存なら同セクションのみ置換更新する。
+- summarize 対象ノートでは、AI が生成した日本語要約を frontmatter の `summary` プロパティへ保存する。
+- `## AI Summary` セクションは正本を重複させないため出力しない。既存ノートに同セクションがある場合、summarize 更新時に削除する。
 - raw 本文セクションは上書きしない。
-- 実際の編集は Obsidian Skills を前提とした Cursor SDK エージェントに委譲する。
+- 実際の編集は Vault adapter に委譲する。`vault_provider: mock` は通常ファイル I/O、`vault_provider: agent` は Cursor SDK エージェント経由で更新する。
 
 ## 10. 状態管理設計
 

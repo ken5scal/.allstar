@@ -42,4 +42,37 @@
 
 - X: `sources.x.provider: x-sdk`、環境変数 `X_BEARER_TOKEN`、Bookmarks 利用時は `X_OAUTH2_ACCESS_TOKEN`。
 - [TypeScript XDK overview](https://docs.x.com/xdks/typescript/overview) を参照。
-- launchd: [launchd/obsflow.example.plist](launchd/obsflow.example.plist) をベースに `ProgramArguments` とログパスを自分の環境に合わせる。
+- launchd: [launchd/obsflow.plist.example](launchd/obsflow.plist.example) をベースに `ProgramArguments` とログパスを自分の環境に合わせる。
+
+## 運用メモ（ローカル）
+
+### 状態 DB を完全リセットする
+
+```bash
+mv "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db" "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+rm -f "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db-wal" "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db-shm"
+```
+
+### ローカル単発実行（収集→要約）
+
+```bash
+cd /Users/k.suzuki/workspace/.allstar
+npm run obsflow -- validate --config examples/config.yaml
+OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config examples/config.yaml --targets collect-rss,summarize
+```
+
+### launchd 登録
+
+```bash
+cd /Users/k.suzuki/workspace/.allstar
+mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs/obsflow"
+cp "launchd/obsflow.plist.example" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
+NODE_BIN="$(which node)"
+REPO_DIR="/Users/k.suzuki/workspace/.allstar"
+sed -i '' "s|{{WORKING_DIRECTORY}}|$REPO_DIR|g" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
+sed -i '' "s|/Users/you/.nodebrew/current/bin/node|$NODE_BIN|g" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
+plutil -lint "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
+launchctl bootout "gui/$(id -u)" com.local.obsflow 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
+launchctl kickstart -k "gui/$(id -u)/com.local.obsflow"
+```

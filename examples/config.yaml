@@ -7,7 +7,7 @@ timezone: "Asia/Tokyo"
 defaults:
   # 利用する Obsidian Vault のルートパスを指定してください。
   # vault_path: "/Users/k.suzuki/workspace/ken5scal"
-  vault_path: "/Users/k.suzuki/workspace/.allstar/test/work/vault"
+  vault_path: "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase"
   # 任意: vault_path 配下のこのサブフォルダに obsflow ファイルを書き込みます。
   # vault_folder: "ObsFlow"
   vault_provider: "mock"
@@ -16,7 +16,7 @@ defaults:
   # rss_provider: "mock"
   state:
     driver: "sqlite"
-    dsn: "/Users/k.suzuki/workspace/.allstar/test/work/state.db"
+    dsn: "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db"
     # dsn: "/Users/k.suzuki/workspace/.allstar/examples/.obsflow/state.db"
   auth:
     x_bearer_token_env: "X_BEARER_TOKEN"
@@ -30,13 +30,9 @@ defaults:
 
 sources:
   rss:
-    - id: "hn"
+    - id: "ycombinator"
       enabled: true
       schedule: "*/30 * * * *"
-      # 既定で true: 記事リンク先を取得し、抽出した本文を保存します。
-      # fetch_article_content: true
-      # 1記事ごとの取得タイムアウト(ms)。未指定時は 12000。
-      # article_fetch_timeout_ms: 12000
       # fixture: "../test/fixtures/rss/sample.xml"
       url: "https://news.ycombinator.com/rss"
 
@@ -47,7 +43,15 @@ sources:
     bookmarks: []
 
 ai:
-  provider: "mock"
+  # provider: "mock"
+  # Summarize + tags via Cursor SDK (cloud):
+  provider: "cursor"
+  model: "composer-2"
+  # 記事へのタグ付けに必要な設定
+  tags:
+    mode: "local_master"
+    master_path: "/Users/k.suzuki/workspace/.allstar/config/tag-master.yaml"
+    max_tags: 5
 
 jobs:
   - id: "summarize-main"

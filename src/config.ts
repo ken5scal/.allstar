@@ -5,6 +5,7 @@ import YAML from "yaml";
 
 import type {
   AiConfig,
+  AiTagsConfig,
   BaseConfig,
   BaseViewConfig,
   DefaultsBlock,
@@ -16,6 +17,7 @@ import type {
   XSourcesConfig,
 } from "./types.js";
 import { OBSFLOW_RECORD_KIND } from "./types.js";
+import { loadTagMasterFile } from "./tag-master.js";
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -58,6 +60,38 @@ function defaultRecordsConfig(): RecordsConfig {
     date_source: "captured_at",
     source_groups: { ...DEFAULT_SOURCE_GROUPS },
   };
+}
+
+function parseAiTagsBlock(
+  raw: unknown,
+  configBaseDir: string,
+  defaultMasterRel: string,
+): AiTagsConfig {
+  if (!isRecord(raw)) throw new Error("ai.tags must be a mapping");
+  if (raw.mode !== "local_master") {
+    throw new Error('ai.tags.mode must be "local_master"');
+  }
+  const masterRel = optStr(raw.master_path)?.trim() || defaultMasterRel;
+  if (!masterRel.length) throw new Error("ai.tags.master_path must be non-empty");
+  const maxRaw = raw.max_tags;
+  const max_tags =
+    maxRaw === undefined || maxRaw === null ? 5
+    : typeof maxRaw === "number" && Number.isInteger(maxRaw) && maxRaw > 0 ?
+      maxRaw
+    : (() => {
+        throw new Error("ai.tags.max_tags must be a positive integer");
+      })();
+  return {
+    mode: "local_master",
+    master_path: path.resolve(configBaseDir, masterRel),
+    max_tags,
+  };
+}
+
+function parseAiProviderName(raw: unknown): AiConfig["provider"] {
+  if (raw === "mock" || raw === "real" || raw === "cursor") return raw;
+  const got = typeof raw === "string" ? raw : String(raw);
+  throw new Error(`ai.provider must be one of: mock, real, cursor (got ${got})`);
 }
 
 function defaultBasesConfig(): BaseConfig[] {
@@ -432,8 +466,23 @@ export function normalizeConfig(raw: unknown, cwd: string): ObsflowConfig {
 
   const aiRaw = raw.ai;
   if (!isRecord(aiRaw)) throw new Error("ai is required");
+  const provider = parseAiProviderName(aiRaw.provider);
+  const model = optStr(aiRaw.model)?.trim() || undefined;
+  let tags: AiTagsConfig | undefined;
+  if (aiRaw.tags !== undefined && aiRaw.tags !== null) {
+    tags = parseAiTagsBlock(aiRaw.tags, cwd, "config/tag-master.yaml");
+  }
+  if (provider === "cursor" && !tags) {
+    tags = {
+      mode: "local_master",
+      master_path: path.resolve(cwd, "config/tag-master.yaml"),
+      max_tags: 5,
+    };
+  }
   const ai: AiConfig = {
-    provider: aiRaw.provider === "real" ? "real" : "mock",
+    provider,
+    ...(model ? { model } : {}),
+    ...(tags ? { tags } : {}),
   };
 
   const jobsRaw = raw.jobs;
@@ -494,6 +543,21 @@ export function validateConfigEnv(cfg: ObsflowConfig): void {
   if (cfg.ai.provider === "real") {
     const k = cfg.defaults.auth.ai_api_key_env ?? "AI_API_KEY";
     if (!envNamePresent(k)) throw new Error(`missing env ${k} for ai provider=real`);
+  }
+
+  if (cfg.ai.provider === "cursor") {
+    const k = cfg.defaults.auth.cursor_api_key_env ?? "CURSOR_API_KEY";
+    if (!envNamePresent(k)) throw new Error(`missing env ${k} for ai provider=cursor`);
+    const tm = cfg.ai.tags;
+    if (!tm) throw new Error("ai provider=cursor requires tags configuration");
+    try {
+      loadTagMasterFile(tm.master_path);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`tag master not loadable (${tm.master_path}): ${msg}`, {
+        cause: e,
+      });
+    }
   }
 
   if (cfg.sources.x.provider === "x-sdk") {
