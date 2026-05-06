@@ -27,4 +27,4 @@ Optional credentials via `.env` (`CURSOR_API_KEY`, `SLACK_WEBHOOK_URL`, `X_BEARE
 
 - 設定ファイル内の相対パス（例: RSS mock の `fixture`、`state.dsn`）は **その YAML ファイルがあるディレクトリ** を基準に解決される（`obsflow tick --config path/to/config.yaml` 想定）。
 - `base_ids` は現時点では任意の補助プロパティです。既定 Base は `record_kind` で機能しますが、将来の複数 Base 振り分けに備えて保持しています。
-- `defaults.rss_provider: feedsmith` の場合、RSS 各 item のリンク先記事本文を取得し、見出し/強調/リスト/リンク/画像/コードなどを可能な限り Obsidian 向け Markdown へ変換して `Raw Content` に保存する（`sources.rss[].fetch_article_content: false` で無効化可能）。
+- `defaults.rss_provider: feedsmith` の場合、RSS 各 item のリンク先記事本文を取得し、見出し/強調/リスト/リンク/画像/コードなどを可能な限り Obsidian 向け Markdown へ変換して `Raw Content` に保存する（`sources.rss[].fetch_article_content: false` で無効化可能）。あわせて Breadcrumb / Share / Audio プレイヤー等の定型 UI ノイズは優先的に除外する。

@@ -106,4 +106,55 @@ describe("rss linked article content", () => {
     expect(hydrated).toEqual(item);
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
+
+  it("removes share and audio boilerplate from article chrome", async () => {
+    const item = {
+      source: "rss" as const,
+      sourceId: "sample",
+      source_item_key: "item-2",
+      content_hash: "sha256:old-2",
+      title: "Gemma Article",
+      rawText: "Fallback summary",
+      canonicalUrl: "https://example.com/articles/gemma",
+    };
+    const noisyHtml = `<!doctype html>
+      <html>
+        <body>
+          <article>
+            <nav aria-label="Breadcrumb">Breadcrumb / Innovation / AI</nav>
+            <div class="share-toolbar">Share <a href="https://x.com/">x.com</a> Copy link</div>
+            <section class="audio-player">
+              <p>Your browser does not support the audio element.</p>
+              <p>Listen to article</p>
+              <p>[[duration]] minutes</p>
+              <p>Voice</p>
+              <p>Speed</p>
+            </section>
+            <h1>Accelerating Gemma 4</h1>
+            <p>Main body paragraph with details.</p>
+            <p>Another paragraph for developers.</p>
+          </article>
+        </body>
+      </html>`;
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      new Response(noisyHtml, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const hydrated = await hydrateRssItemWithLinkedContent(item, { timeoutMs: 3000 });
+    expect(hydrated.rawText).toContain("# Accelerating Gemma 4");
+    expect(hydrated.rawText).toContain("Main body paragraph with details.");
+    expect(hydrated.rawText).toContain("Another paragraph for developers.");
+    expect(hydrated.rawText).not.toContain("Breadcrumb");
+    expect(hydrated.rawText).not.toContain("Share");
+    expect(hydrated.rawText).not.toContain("Copy link");
+    expect(hydrated.rawText).not.toContain("Listen to article");
+    expect(hydrated.rawText).not.toContain("Your browser does not support the audio element.");
+    expect(hydrated.rawText).not.toContain("[[duration]] minutes");
+    expect(hydrated.rawText).not.toContain("Voice");
+    expect(hydrated.rawText).not.toContain("Speed");
+  });
 });

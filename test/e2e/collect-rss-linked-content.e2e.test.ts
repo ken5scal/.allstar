@@ -44,6 +44,17 @@ async function startFixtureServer(): Promise<{
   <body>
     <header>navigation links</header>
     <article>
+      <nav aria-label="Breadcrumb">Breadcrumb / Innovation / AI</nav>
+      <section class="share-toolbar">
+        <p>Share</p>
+        <p>x.com</p>
+        <p>Copy link</p>
+      </section>
+      <section class="audio-player">
+        <p>Your browser does not support the audio element.</p>
+        <p>Listen to article</p>
+        <p>[[duration]] minutes</p>
+      </section>
       <h1>Fixture Item</h1>
       <p>Full linked article paragraph line 1 with <strong>bold</strong>.</p>
       <ul>
@@ -158,6 +169,12 @@ describe("collect-rss linked article content e2e", () => {
       );
       expect(rec.rawContent).toContain("- Bullet line in article");
       expect(rec.rawContent).toContain("[Reference link](https://example.com/ref)");
+      expect(rec.rawContent).not.toContain("Breadcrumb");
+      expect(rec.rawContent).not.toContain("Share");
+      expect(rec.rawContent).not.toContain("Copy link");
+      expect(rec.rawContent).not.toContain("Your browser does not support the audio element.");
+      expect(rec.rawContent).not.toContain("Listen to article");
+      expect(rec.rawContent).not.toContain("[[duration]] minutes");
       expect(rec.rawContent).not.toContain("Feed summary snippet that should be replaced.");
 
       const state = new SqliteStateRepository(stateDsn);
