@@ -344,27 +344,74 @@ function blockHtmlToMarkdown(html: string): string {
   return normalizeMarkdown(out);
 }
 
-function extractArticleMarkdownFromHtml(html: string): string {
-  const sanitized = stripNoisyHtmlBlocks(html);
+function pickArticleContentRoot(sanitizedHtml: string): string {
   const articleHtml = longestMatch(
-    sanitized,
+    sanitizedHtml,
     /<article\b[^>]*>([\s\S]*?)<\s*\/\s*article\b[^>]*>/gi,
   );
-  if (articleHtml.trim().length > 0) {
-    return cleanupBoilerplateMarkdown(blockHtmlToMarkdown(articleHtml));
-  }
+  if (articleHtml.trim().length > 0) return articleHtml;
   const mainHtml = longestMatch(
-    sanitized,
+    sanitizedHtml,
     /<main\b[^>]*>([\s\S]*?)<\s*\/\s*main\b[^>]*>/gi,
   );
-  if (mainHtml.trim().length > 0) {
-    return cleanupBoilerplateMarkdown(blockHtmlToMarkdown(mainHtml));
+  if (mainHtml.trim().length > 0) return mainHtml;
+  const body = sanitizedHtml.match(/<body\b[^>]*>([\s\S]*?)<\s*\/\s*body\b[^>]*>/i);
+  if (body?.[1]) return body[1];
+  return sanitizedHtml;
+}
+
+function firstHeadingTextFromHtml(html: string): string | undefined {
+  for (const level of ["h1", "h2"]) {
+    const m = html.match(new RegExp(`<${level}\\b[^>]*>([\\s\\S]*?)<\\s*\\/\\s*${level}\\b[^>]*>`, "i"));
+    if (!m?.[1]) continue;
+    const txt = normalizeInlineText(inlineHtmlToMarkdown(m[1]));
+    if (txt.length) return txt;
   }
-  const body = sanitized.match(/<body\b[^>]*>([\s\S]*?)<\s*\/\s*body\b[^>]*>/i);
-  if (body?.[1]) {
-    return cleanupBoilerplateMarkdown(blockHtmlToMarkdown(body[1]));
+  return undefined;
+}
+
+function metaContentByAttr(
+  html: string,
+  attr: "property" | "name",
+  value: string,
+): string | undefined {
+  for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
+    const attrVal = readHtmlAttribute(tag, attr);
+    if (!attrVal || attrVal.toLowerCase() !== value.toLowerCase()) continue;
+    const content = readHtmlAttribute(tag, "content");
+    if (content?.trim()) return normalizeInlineText(content);
   }
-  return cleanupBoilerplateMarkdown(blockHtmlToMarkdown(sanitized));
+  return undefined;
+}
+
+function titleTagText(html: string): string | undefined {
+  const m = html.match(/<title\b[^>]*>([\s\S]*?)<\s*\/\s*title>/i);
+  if (!m?.[1]) return undefined;
+  const t = normalizeInlineText(inlineHtmlToMarkdown(m[1]));
+  if (!t.length) return undefined;
+  const parts = t.split(/\s(?:\||-|—|·)\s/);
+  if (parts.length > 1 && parts[0].trim().length >= 8) {
+    return parts[0].trim();
+  }
+  return t;
+}
+
+function extractArticleTitleFromHtml(html: string, articleRootHtml: string): string | undefined {
+  const fromHeading = firstHeadingTextFromHtml(articleRootHtml);
+  if (fromHeading) return fromHeading;
+  const fromOg = metaContentByAttr(html, "property", "og:title");
+  if (fromOg) return fromOg;
+  const fromTwitter = metaContentByAttr(html, "name", "twitter:title");
+  if (fromTwitter) return fromTwitter;
+  return titleTagText(html);
+}
+
+function extractArticleFromHtml(html: string): { markdown: string; title?: string } {
+  const sanitized = stripNoisyHtmlBlocks(html);
+  const articleRoot = pickArticleContentRoot(sanitized);
+  const markdown = cleanupBoilerplateMarkdown(blockHtmlToMarkdown(articleRoot));
+  const title = extractArticleTitleFromHtml(html, articleRoot);
+  return { markdown, title };
 }
 
 function isBoilerplateLine(line: string): boolean {
@@ -393,7 +440,7 @@ function cleanupBoilerplateMarkdown(markdown: string): string {
 async function fetchLinkedArticleText(
   url: string,
   timeoutMs: number,
-): Promise<string | null> {
+): Promise<{ markdown: string; title?: string } | null> {
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -407,8 +454,8 @@ async function fetchLinkedArticleText(
     const contentType = res.headers.get("content-type") ?? "";
     if (!contentType.includes("text/html")) return null;
     const html = await res.text();
-    const articleText = extractArticleMarkdownFromHtml(html);
-    return articleText.length > 0 ? articleText : null;
+    const article = extractArticleFromHtml(html);
+    return article.markdown.length > 0 ? article : null;
   } catch {
     return null;
   } finally {
@@ -428,13 +475,18 @@ export async function hydrateRssItemWithLinkedContent(
     opts?.timeoutMs ?? DEFAULT_ARTICLE_FETCH_TIMEOUT_MS,
   );
   if (!articleText) return item;
+  const resolvedTitle =
+    articleText.title && articleText.title.trim().length > 0 ?
+      articleText.title.trim()
+    : item.title;
   const canonical = item.canonicalUrl ?? item.source_item_key;
   return {
     ...item,
-    rawText: articleText,
+    title: resolvedTitle,
+    rawText: articleText.markdown,
     content_hash: rssContentHash({
-      title: item.title || "(no title)",
-      body: articleText,
+      title: resolvedTitle || "(no title)",
+      body: articleText.markdown,
       canonicalUrl: canonical,
     }),
   };

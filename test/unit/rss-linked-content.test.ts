@@ -157,4 +157,46 @@ describe("rss linked article content", () => {
     expect(hydrated.rawText).not.toContain("Voice");
     expect(hydrated.rawText).not.toContain("Speed");
   });
+
+  it("uses extracted article heading as canonical title", async () => {
+    const item = {
+      source: "rss" as const,
+      sourceId: "sample",
+      source_item_key: "item-3",
+      content_hash: "sha256:old-3",
+      title: "telus-uses-ai-to-alter-call-agent-accents-a3868f63",
+      rawText: "Fallback summary",
+      canonicalUrl: "https://example.com/articles/telus",
+    };
+    const html = `<!doctype html>
+      <html>
+        <head>
+          <title>Telus Uses AI to Alter Call-Agent Accents | Data Science News</title>
+        </head>
+        <body>
+          <article>
+            <h1>Telus Uses AI to Alter Call-Agent Accents</h1>
+            <p>Main article paragraph.</p>
+          </article>
+        </body>
+      </html>`;
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      new Response(html, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const hydrated = await hydrateRssItemWithLinkedContent(item, { timeoutMs: 3000 });
+    expect(hydrated.title).toBe("Telus Uses AI to Alter Call-Agent Accents");
+    expect(hydrated.rawText).toContain("# Telus Uses AI to Alter Call-Agent Accents");
+    expect(hydrated.content_hash).toBe(
+      rssContentHash({
+        title: "Telus Uses AI to Alter Call-Agent Accents",
+        body: hydrated.rawText,
+        canonicalUrl: "https://example.com/articles/telus",
+      }),
+    );
+  });
 });
