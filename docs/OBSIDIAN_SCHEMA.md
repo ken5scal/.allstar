@@ -147,9 +147,10 @@ job_run_id: "0195a2ce-8f8d-781f-9f42-b08cf7054ca4"
 
 frontmatter とは別に本文側は以下を持つ。
 
+- `# Summary` (frontmatter `summary` と同じ要約本文。モバイル閲覧時の視認性を補う)
 - `## Raw Content` (収集本文)
 
-AI 要約は frontmatter の `summary` プロパティを正本とする。`## AI Summary` セクションは正本の重複を避けるため出力しない。既存ノートに同セクションがある場合、要約更新時に削除する。
+AI 要約の正本は frontmatter の `summary` プロパティとし、本文先頭の `# Summary` には同じ内容を Markdown として表示する。`## AI Summary` セクションは出力しない。既存ノートに同セクションがある場合、要約更新時に削除する。
 
 ## 6. 未確定事項
 

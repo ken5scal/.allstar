@@ -93,6 +93,7 @@ describe("runSummarizeJob", () => {
 
     const md = fs.readFileSync(dst, "utf8");
     expect(md).toContain("Second body.");
+    expect(md).toContain("# Summary\n\n- 要点1\n- 要点2\n\n## Raw Content");
     expect(md).not.toContain("## AI Summary");
     const rec = parseVaultNote(md);
     expect(rec?.status).toBe("summarized");

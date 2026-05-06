@@ -5,6 +5,7 @@ import { OBSFLOW_RECORD_KIND } from "./types.js";
 import { stringFromUnknown } from "./string-utils.js";
 
 export const RAW_SECTION = "## Raw Content";
+export const SUMMARY_SECTION = "# Summary";
 export const AI_SECTION = "## AI Summary";
 
 export function renderVaultNote(r: VaultRecord): string {
@@ -34,7 +35,12 @@ export function renderVaultNote(r: VaultRecord): string {
     fm.content_issue_marked_at = r.content_issue_marked_at;
   }
   if (r.published_at !== undefined) fm.published_at = r.published_at;
+  const summary = r.summary.trim();
   const bodyParts = [
+    "",
+    SUMMARY_SECTION,
+    "",
+    summary,
     "",
     RAW_SECTION,
     "",
