@@ -117,13 +117,32 @@ function decodeHtmlEntities(text: string): string {
   });
 }
 
+function stripTagsToText(html: string): string {
+  return html
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/[<>]/g, "");
+}
+
+function escapeMarkdownLabel(text: string): string {
+  return text.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+}
+
+function escapeMarkdownInlineCode(text: string): string {
+  return text.replace(/\\/g, "\\\\").replace(/`/g, "\\`");
+}
+
+function escapeMarkdownTableCell(text: string): string {
+  return text.replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
+}
+
 function inlineHtmlToMarkdown(html: string): string {
   let out = html;
 
   out = out.replace(/<img\b[^>]*>/gi, (tag) => {
     const src = readHtmlAttribute(tag, "src");
     if (!src) return "";
-    const alt = (readHtmlAttribute(tag, "alt") ?? "").replace(/]/g, "\\]");
+    const alt = escapeMarkdownLabel(readHtmlAttribute(tag, "alt") ?? "");
     return `![${alt}](${src})`;
   });
 
@@ -155,10 +174,8 @@ function inlineHtmlToMarkdown(html: string): string {
     (_m, inner: string) => `<mark>${inlineHtmlToMarkdown(inner)}</mark>`,
   );
   out = out.replace(/<code\b[^>]*>([\s\S]*?)<\s*\/\s*code>/gi, (_m, inner: string) => {
-    const code = decodeHtmlEntities(
-      inner.replace(/<\s*br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, ""),
-    ).trim();
-    return code.length > 0 ? `\`${code.replace(/`/g, "\\`")}\`` : "";
+    const code = decodeHtmlEntities(stripTagsToText(inner)).trim();
+    return code.length > 0 ? `\`${escapeMarkdownInlineCode(code)}\`` : "";
   });
 
   out = out
@@ -222,7 +239,7 @@ function codeBlockFromPre(preHtml: string): string {
   const langMatch = cls.match(/(?:language|lang)-([a-z0-9_-]+)/i);
   const lang = langMatch?.[1] ?? "";
   const code = decodeHtmlEntities(
-    inner.replace(/<\s*br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, ""),
+    stripTagsToText(inner),
   )
     .replace(/\r/g, "")
     .trimEnd();
@@ -237,7 +254,7 @@ function tableHtmlToMarkdown(tableHtml: string): string {
     .map((row) => {
       const cells = [
         ...row[1].matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\s*\/\s*t[hd]>/gi),
-      ].map((cell) => inlineHtmlToMarkdown(cell[1]).replace(/\|/g, "\\|").trim());
+      ].map((cell) => escapeMarkdownTableCell(inlineHtmlToMarkdown(cell[1]).trim()));
       return cells;
     })
     .filter((cells) => cells.length > 0);
