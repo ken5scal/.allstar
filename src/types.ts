@@ -50,6 +50,13 @@ export interface RssSourceConfig {
   url?: string;
   /** When rss provider is mock: XML fixture path (repo-relative or absolute). */
   fixture?: string;
+  /**
+   * When true, fetch linked article pages and save extracted body text.
+   * Defaults to true for feedsmith provider.
+   */
+  fetch_article_content?: boolean;
+  /** Timeout in milliseconds for each linked article fetch. */
+  article_fetch_timeout_ms?: number;
   provider?: RssProviderName;
 }
 

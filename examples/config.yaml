@@ -33,6 +33,10 @@ sources:
     - id: "hn"
       enabled: true
       schedule: "*/30 * * * *"
+      # 既定で true: 記事リンク先を取得し、抽出した本文を保存します。
+      # fetch_article_content: true
+      # 1記事ごとの取得タイムアウト(ms)。未指定時は 12000。
+      # article_fetch_timeout_ms: 12000
       # fixture: "../test/fixtures/rss/sample.xml"
       url: "https://news.ycombinator.com/rss"
 
