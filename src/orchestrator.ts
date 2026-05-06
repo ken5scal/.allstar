@@ -9,6 +9,7 @@ import type { ObsflowConfig, ExitSeverity, FailureReport, JobRun } from "./types
 import type { AlertAdapter } from "./adapters/interfaces.js";
 import { createAlertMockAdapter } from "./adapters/alert-mock.js";
 import { createSlackAlertAdapter } from "./adapters/alert-slack.js";
+import { createAiCursorAdapter } from "./adapters/ai-cursor.js";
 import { createAiMockAdapter } from "./adapters/ai-mock.js";
 import { createAiRealStubAdapter } from "./adapters/ai-real.js";
 import { SqliteStateRepository } from "./adapters/state-sqlite.js";
@@ -60,7 +61,7 @@ class DedupAlert implements AlertAdapter {
 function envVal(name: string | undefined, fallback: string): string {
   const k = name ?? fallback;
   const v = process.env[k];
-  if (!v) throw new Error(`missing env ${k}`);
+  if (!v) throw new Error("missing required environment variable");
   return v;
 }
 
@@ -191,9 +192,9 @@ async function runOrchestration(
     const raw = loadConfigFile(configPath);
     cfg = normalizeConfig(raw, configBaseDir);
     validateConfigEnv(cfg);
-  } catch (e) {
-    log.error({ err: e, msg: "config_error" });
-    process.stderr.write(String(e) + "\n");
+  } catch {
+    log.error({ msg: "config_error" });
+    process.stderr.write("Configuration error. Check configuration and required environment variables.\n");
     return 1;
   }
 
@@ -237,10 +238,25 @@ async function runOrchestration(
 
     await ensureVaultBases(cfg, vault);
 
-    const ai =
-      cfg.ai.provider === "real"
-        ? createAiRealStubAdapter()
-        : createAiMockAdapter();
+    const ai = (() => {
+      switch (cfg.ai.provider) {
+        case "mock":
+          return createAiMockAdapter();
+        case "real":
+          return createAiRealStubAdapter();
+        case "cursor":
+          return createAiCursorAdapter({
+            apiKey: envVal(cfg.defaults.auth.cursor_api_key_env, "CURSOR_API_KEY"),
+            model: cfg.ai.model,
+            tagMasterPath: cfg.ai.tags!.master_path,
+            maxTags: cfg.ai.tags!.max_tags,
+          });
+        default: {
+          const neverProvider: never = cfg.ai.provider;
+          throw new Error(`unsupported ai.provider: ${String(neverProvider)}`);
+        }
+      }
+    })();
 
     const fixtureDir = path.join(cwd, "test/fixtures/x");
     const xCollector =
@@ -775,9 +791,9 @@ async function runOrchestration(
       failed: outcomeTotals.failed,
     });
     return code;
-  } catch (e) {
-    log.error({ err: e, msg: "orchestration_error" });
-    process.stderr.write(String(e) + "\n");
+  } catch {
+    log.error({ msg: "orchestration_error" });
+    process.stderr.write("orchestration_error\n");
     return 1;
   } finally {
     state.releaseTickLock(tickRunId);

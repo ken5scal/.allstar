@@ -5,6 +5,7 @@ import YAML from "yaml";
 
 import type {
   AiConfig,
+  AiTagsConfig,
   BaseConfig,
   BaseViewConfig,
   DefaultsBlock,
@@ -16,6 +17,7 @@ import type {
   XSourcesConfig,
 } from "./types.js";
 import { OBSFLOW_RECORD_KIND } from "./types.js";
+import { loadTagMasterFile } from "./tag-master.js";
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -58,6 +60,38 @@ function defaultRecordsConfig(): RecordsConfig {
     date_source: "captured_at",
     source_groups: { ...DEFAULT_SOURCE_GROUPS },
   };
+}
+
+function parseAiTagsBlock(
+  raw: unknown,
+  configBaseDir: string,
+  defaultMasterRel: string,
+): AiTagsConfig {
+  if (!isRecord(raw)) throw new Error("ai.tags must be a mapping");
+  if (raw.mode !== "local_master") {
+    throw new Error('ai.tags.mode must be "local_master"');
+  }
+  const masterRel = optStr(raw.master_path)?.trim() || defaultMasterRel;
+  if (!masterRel.length) throw new Error("ai.tags.master_path must be non-empty");
+  const maxRaw = raw.max_tags;
+  const max_tags =
+    maxRaw === undefined || maxRaw === null ? 5
+    : typeof maxRaw === "number" && Number.isInteger(maxRaw) && maxRaw > 0 ?
+      maxRaw
+    : (() => {
+        throw new Error("ai.tags.max_tags must be a positive integer");
+      })();
+  return {
+    mode: "local_master",
+    master_path: path.resolve(configBaseDir, masterRel),
+    max_tags,
+  };
+}
+
+function parseAiProviderName(raw: unknown): AiConfig["provider"] {
+  if (raw === "mock" || raw === "real" || raw === "cursor") return raw;
+  const got = typeof raw === "string" ? raw : String(raw);
+  throw new Error(`ai.provider must be one of: mock, real, cursor (got ${got})`);
 }
 
 function defaultBasesConfig(): BaseConfig[] {
@@ -432,8 +466,23 @@ export function normalizeConfig(raw: unknown, cwd: string): ObsflowConfig {
 
   const aiRaw = raw.ai;
   if (!isRecord(aiRaw)) throw new Error("ai is required");
+  const provider = parseAiProviderName(aiRaw.provider);
+  const model = optStr(aiRaw.model)?.trim() || undefined;
+  let tags: AiTagsConfig | undefined;
+  if (aiRaw.tags !== undefined && aiRaw.tags !== null) {
+    tags = parseAiTagsBlock(aiRaw.tags, cwd, "config/tag-master.yaml");
+  }
+  if (provider === "cursor" && !tags) {
+    tags = {
+      mode: "local_master",
+      master_path: path.resolve(cwd, "config/tag-master.yaml"),
+      max_tags: 5,
+    };
+  }
   const ai: AiConfig = {
-    provider: aiRaw.provider === "real" ? "real" : "mock",
+    provider,
+    ...(model ? { model } : {}),
+    ...(tags ? { tags } : {}),
   };
 
   const jobsRaw = raw.jobs;
@@ -480,7 +529,7 @@ function envNamePresent(name: string | undefined): boolean {
 export function validateConfigEnv(cfg: ObsflowConfig): void {
   if (cfg.defaults.vault_provider === "agent") {
     const k = cfg.defaults.auth.cursor_api_key_env ?? "CURSOR_API_KEY";
-    if (!envNamePresent(k)) throw new Error(`missing env ${k} for vault_provider=agent`);
+    if (!envNamePresent(k)) throw new Error("missing required environment variable for vault_provider=agent");
   }
 
   const alertProv =
@@ -488,17 +537,32 @@ export function validateConfigEnv(cfg: ObsflowConfig): void {
   if (alertProv === "slack") {
     const k = cfg.defaults.alert.slack_webhook_env ?? cfg.defaults.auth.slack_webhook_env;
     const name = k ?? "SLACK_WEBHOOK_URL";
-    if (!envNamePresent(name)) throw new Error(`missing env ${name} for alert slack provider`);
+    if (!envNamePresent(name)) throw new Error("missing required environment variable for alert slack provider");
   }
 
   if (cfg.ai.provider === "real") {
     const k = cfg.defaults.auth.ai_api_key_env ?? "AI_API_KEY";
-    if (!envNamePresent(k)) throw new Error(`missing env ${k} for ai provider=real`);
+    if (!envNamePresent(k)) throw new Error("missing required environment variable for ai provider=real");
+  }
+
+  if (cfg.ai.provider === "cursor") {
+    const k = cfg.defaults.auth.cursor_api_key_env ?? "CURSOR_API_KEY";
+    if (!envNamePresent(k)) throw new Error("missing required environment variable for ai provider=cursor");
+    const tm = cfg.ai.tags;
+    if (!tm) throw new Error("ai provider=cursor requires tags configuration");
+    try {
+      loadTagMasterFile(tm.master_path);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`tag master not loadable (${tm.master_path}): ${msg}`, {
+        cause: e,
+      });
+    }
   }
 
   if (cfg.sources.x.provider === "x-sdk") {
     const bt = cfg.defaults.auth.x_bearer_token_env ?? "X_BEARER_TOKEN";
-    if (!envNamePresent(bt)) throw new Error(`missing env ${bt} for x-sdk (search/lists)`);
+    if (!envNamePresent(bt)) throw new Error("missing required environment variable for x-sdk (search/lists)");
 
     const anyBookmarks = cfg.sources.x.bookmarks.some((b) => b.enabled);
     if (anyBookmarks) {
@@ -506,7 +570,7 @@ export function validateConfigEnv(cfg: ObsflowConfig): void {
         cfg.defaults.auth.x_oauth2_access_token_env ?? "X_OAUTH2_ACCESS_TOKEN";
       if (!envNamePresent(at)) {
         throw new Error(
-          `missing env ${at} for x-sdk bookmarks (user OAuth2 access token required)`,
+          "missing required environment variable for x-sdk bookmarks (user OAuth2 access token required)",
         );
       }
     }

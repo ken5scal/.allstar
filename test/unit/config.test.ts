@@ -60,6 +60,39 @@ describe("config", () => {
     expect(() => normalizeConfig(raw, mockCfgDir)).toThrow(/positive number/);
   });
 
+  it("parses cursor AI provider and tag master settings", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
+      ai: Record<string, unknown>;
+    };
+    raw.ai = {
+      provider: "cursor",
+      model: "composer-2",
+      tags: {
+        mode: "local_master",
+        master_path: "./tag-master.min.yaml",
+        max_tags: 3,
+      },
+    };
+    const cfg = normalizeConfig(raw, mockCfgDir);
+    expect(cfg.ai.provider).toBe("cursor");
+    expect(cfg.ai.model).toBe("composer-2");
+    expect(cfg.ai.tags).toEqual({
+      mode: "local_master",
+      master_path: path.resolve(mockCfgDir, "tag-master.min.yaml"),
+      max_tags: 3,
+    });
+  });
+
+  it("rejects unsupported ai.provider instead of falling back to mock", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
+      ai: Record<string, unknown>;
+    };
+    raw.ai = { provider: "openai" };
+    expect(() => normalizeConfig(raw, mockCfgDir)).toThrow(
+      /ai\.provider must be one of: mock, real, cursor/,
+    );
+  });
+
   it("rejects bases path not ending in .base", () => {
     const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
       bases: unknown;

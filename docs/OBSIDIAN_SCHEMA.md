@@ -135,9 +135,8 @@ job_run_id: "0195a2ce-8f8d-781f-9f42-b08cf7054ca4"
 frontmatter とは別に本文側は以下を持つ。
 
 - `## Raw Content` (収集本文)
-- `## AI Summary` (要約; 更新対象)
 
-`DETAILED_DESIGN.md` で定義した通り、要約更新時は `## AI Summary` セクションのみ置換する。
+AI 要約は frontmatter の `summary` プロパティを正本とする。`## AI Summary` セクションは正本の重複を避けるため出力しない。既存ノートに同セクションがある場合、要約更新時に削除する。
 
 ## 6. 未確定事項
 

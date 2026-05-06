@@ -1,0 +1,76 @@
+# Cursor SDK 要約・タグ付けの動作確認用（ネットワーク + CURSOR_API_KEY 必要）
+# 使い方:
+#   ./scripts/prepare-cursor-smoke-vault.sh
+#   npm run obsflow -- validate --config examples/config.cursor-smoke.yaml
+#   OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config examples/config.cursor-smoke.yaml --targets summarize
+#
+# 作業用 Vault は git 対象外の test/work/cursor-ai-smoke-vault にコピーされます。
+
+version: 1
+timezone: "Asia/Tokyo"
+
+defaults:
+  vault_path: "../test/work/cursor-ai-smoke-vault"
+  vault_provider: "mock"
+  timezone: "Asia/Tokyo"
+  rss_provider: "mock"
+  state:
+    driver: "sqlite"
+    dsn: "../test/work/cursor-smoke-state.db"
+  auth:
+    cursor_api_key_env: "CURSOR_API_KEY"
+    x_bearer_token_env: "X_BEARER_TOKEN"
+    x_oauth2_access_token_env: "X_OAUTH2_ACCESS_TOKEN"
+    ai_api_key_env: "AI_API_KEY"
+    slack_webhook_env: "SLACK_WEBHOOK_URL"
+  alert:
+    provider: "mock"
+    slack_webhook_env: "SLACK_WEBHOOK_URL"
+
+sources:
+  rss: []
+  x:
+    provider: "mock"
+    search: []
+    lists: []
+    bookmarks: []
+
+ai:
+  provider: "cursor"
+  model: "composer-2"
+  tags:
+    mode: "local_master"
+    master_path: "../config/tag-master.yaml"
+    max_tags: 5
+
+jobs:
+  - id: "summarize-main"
+    type: "summarize"
+    enabled: true
+    schedule: "*/15 * * * *"
+
+records:
+  root_folder: "src"
+  path_template: "{source_group}/{source_id}/{yyyy}/{mm}/{dd}"
+  filename_template: "{slug}.md"
+  date_source: "captured_at"
+  source_groups:
+    rss: "rss"
+    x: "sns"
+    web: "web"
+    youtube: "youtube"
+
+bases:
+  - id: "all-records"
+    path: "Records.base"
+    mode: "create_if_missing"
+    filters:
+      - 'record_kind == "obsflow-record"'
+    views:
+      - type: "table"
+        name: "All"
+        order:
+          - file.name
+          - source_type
+          - status
+          - captured_at
