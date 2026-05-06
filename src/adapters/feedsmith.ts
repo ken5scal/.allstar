@@ -117,13 +117,36 @@ function decodeHtmlEntities(text: string): string {
   });
 }
 
+/** Strip `<...>` tags; repeat until stable (mitigates nested-tag bypasses; CodeQL). */
+function stripHtmlAngleTags(html: string): string {
+  let out = html.replace(/<\s*br\s*\/?>/gi, "\n");
+  let prev = "";
+  while (prev !== out) {
+    prev = out;
+    out = out.replace(/<[^>]+>/g, "");
+  }
+  return out;
+}
+
+function escapeMarkdownImageAlt(text: string): string {
+  return text.replace(/\\/g, "\\\\").replace(/]/g, "\\]");
+}
+
+function escapeMarkdownCodeSpan(text: string): string {
+  return text.replace(/\\/g, "\\\\").replace(/`/g, "\\`");
+}
+
+function escapeMarkdownTableCell(text: string): string {
+  return text.replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
+}
+
 function inlineHtmlToMarkdown(html: string): string {
   let out = html;
 
   out = out.replace(/<img\b[^>]*>/gi, (tag) => {
     const src = readHtmlAttribute(tag, "src");
     if (!src) return "";
-    const alt = (readHtmlAttribute(tag, "alt") ?? "").replace(/]/g, "\\]");
+    const alt = escapeMarkdownImageAlt(readHtmlAttribute(tag, "alt") ?? "");
     return `![${alt}](${src})`;
   });
 
@@ -155,10 +178,8 @@ function inlineHtmlToMarkdown(html: string): string {
     (_m, inner: string) => `<mark>${inlineHtmlToMarkdown(inner)}</mark>`,
   );
   out = out.replace(/<code\b[^>]*>([\s\S]*?)<\s*\/\s*code>/gi, (_m, inner: string) => {
-    const code = decodeHtmlEntities(
-      inner.replace(/<\s*br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, ""),
-    ).trim();
-    return code.length > 0 ? `\`${code.replace(/`/g, "\\`")}\`` : "";
+    const code = decodeHtmlEntities(stripHtmlAngleTags(inner)).trim();
+    return code.length > 0 ? `\`${escapeMarkdownCodeSpan(code)}\`` : "";
   });
 
   out = out
@@ -187,7 +208,10 @@ function stripNoisyHtmlBlocks(html: string): string {
     .replace(/<button\b[^>]*>[\s\S]*?<\s*\/\s*button\b[^>]*>/gi, " ")
     .replace(/<select\b[^>]*>[\s\S]*?<\s*\/\s*select\b[^>]*>/gi, " ")
     .replace(/<textarea\b[^>]*>[\s\S]*?<\s*\/\s*textarea\b[^>]*>/gi, " ")
-    .replace(/<input\b[^>]*\/?>/gi, " ");
+    // Keep checkbox inputs so list HTML → markdown can emit `- [x] task` task lists.
+    .replace(/<input\b[^>]*\/?>/gi, (tag) =>
+      /\btype\s*=\s*["']?checkbox["']?/i.test(tag) ? tag : " ",
+    );
 
   const keywords = NOISE_ATTR_KEYWORDS.join("|");
   const blockTagPattern = new RegExp(
@@ -222,9 +246,7 @@ function codeBlockFromPre(preHtml: string): string {
   const cls = readHtmlAttribute(attrs, "class") ?? "";
   const langMatch = cls.match(/(?:language|lang)-([a-z0-9_-]+)/i);
   const lang = langMatch?.[1] ?? "";
-  const code = decodeHtmlEntities(
-    inner.replace(/<\s*br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, ""),
-  )
+  const code = decodeHtmlEntities(stripHtmlAngleTags(inner))
     .replace(/\r/g, "")
     .trimEnd();
   if (!code.length) return "";
@@ -238,7 +260,7 @@ function tableHtmlToMarkdown(tableHtml: string): string {
     .map((row) => {
       const cells = [
         ...row[1].matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\s*\/\s*t[hd]>/gi),
-      ].map((cell) => inlineHtmlToMarkdown(cell[1]).replace(/\|/g, "\\|").trim());
+      ].map((cell) => escapeMarkdownTableCell(inlineHtmlToMarkdown(cell[1])).trim());
       return cells;
     })
     .filter((cells) => cells.length > 0);
