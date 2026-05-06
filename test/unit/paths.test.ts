@@ -33,7 +33,7 @@ describe("recordNoteRelPath", () => {
     };
     const cap = new Date(Date.UTC(2026, 4, 5, 12, 0, 0));
     const rel = recordNoteRelPath(cfg, item, cap);
-    expect(rel).toBe(path.posix.join("src", "rss", "hn", "2026", "05", "05", "hello-rss.md"));
+    expect(rel).toBe(path.posix.join("src", "rss", "hn", "2026", "05", "05", "Hello RSS.md"));
   });
 
   it("uses published_at for folders when date_source is published_at_or_captured_at", () => {
@@ -49,6 +49,20 @@ describe("recordNoteRelPath", () => {
     };
     const rel = recordNoteRelPath(cfg, item, new Date(Date.UTC(2026, 5, 1)));
     expect(rel).toContain(path.posix.join("2024", "01", "02"));
+  });
+
+  it("keeps URL-safe slug naming for non-rss records", () => {
+    const cfg = minimalCfg();
+    const item: SourceItem = {
+      source: "x-search",
+      sourceId: "x-monitor",
+      source_item_key: "tweet-1",
+      content_hash: "h-x",
+      title: "Hello X Search!",
+      rawText: "x body",
+    };
+    const rel = recordNoteRelPath(cfg, item, new Date(Date.UTC(2026, 5, 1)));
+    expect(rel).toContain(path.posix.join("hello-x-search.md"));
   });
 
   it("rejects path-breaking filename_template", () => {

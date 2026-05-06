@@ -83,6 +83,16 @@ export function slugForRecordNote(item: SourceItem, maxLen = 120): string {
   return s.length <= maxLen ? s : s.slice(0, maxLen);
 }
 
+/** Human-readable filename stem from item title (for RSS articles). */
+function titleStemForRecordNote(item: SourceItem, maxLen = 120): string {
+  const rawTitle = item.title.trim();
+  if (!rawTitle.length) {
+    return slugForRecordNote(item, maxLen);
+  }
+  const safe = safePathSegment(rawTitle, maxLen);
+  return safe.length ? safe : "item";
+}
+
 function pathDateForItem(
   cfg: RecordsConfig,
   item: SourceItem,
@@ -142,7 +152,8 @@ export function recordNoteRelPath(
   const yyyy = String(pathD.getUTCFullYear());
   const mm = String(pathD.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(pathD.getUTCDate()).padStart(2, "0");
-  const slug = slugForRecordNote(item);
+  const slug =
+    item.source === "rss" ? titleStemForRecordNote(item) : slugForRecordNote(item);
   const vars: Record<string, string> = {
     source_group: safePathSegment(sourceGroupRaw),
     source_id: safePathSegment(item.sourceId),

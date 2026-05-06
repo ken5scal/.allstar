@@ -33,8 +33,15 @@ describe("rss linked article content", () => {
           <header>navigation</header>
           <article>
             <h1>Hello World</h1>
-            <p>Linked story body line 1.</p>
-            <p>Linked story body line 2 &amp; details.</p>
+            <p>Linked story body line 1 with <strong>bold</strong> and <em>italic</em>.</p>
+            <p><del>Removed</del> <u>Underline</u> <mark>Marked</mark>.</p>
+            <ul>
+              <li>Bullet one</li>
+              <li><input type="checkbox" checked />Done task</li>
+            </ul>
+            <p>Reference: <a href="https://example.com/docs">docs</a>.</p>
+            <p><img src="https://example.com/image.png" alt="Hero image" /></p>
+            <pre><code class="language-ts">const value = 1;\nconsole.log(value);</code></pre>
           </article>
         </body>
       </html>`;
@@ -58,8 +65,15 @@ describe("rss linked article content", () => {
     expect(items).toHaveLength(1);
 
     const hydrated = await hydrateRssItemWithLinkedContent(items[0], { timeoutMs: 3000 });
-    expect(hydrated.rawText).toContain("Linked story body line 1.");
-    expect(hydrated.rawText).toContain("Linked story body line 2 & details.");
+    expect(hydrated.rawText).toContain("# Hello World");
+    expect(hydrated.rawText).toContain("Linked story body line 1 with **bold** and *italic*.");
+    expect(hydrated.rawText).toContain("~~Removed~~ <u>Underline</u> <mark>Marked</mark>.");
+    expect(hydrated.rawText).toContain("- Bullet one");
+    expect(hydrated.rawText).toContain("- [x] Done task");
+    expect(hydrated.rawText).toContain("[docs](https://example.com/docs)");
+    expect(hydrated.rawText).toContain("![Hero image](https://example.com/image.png)");
+    expect(hydrated.rawText).toContain("```ts");
+    expect(hydrated.rawText).toContain("const value = 1;");
     expect(hydrated.rawText).not.toContain("navigation");
     expect(hydrated.content_hash).toBe(
       rssContentHash({
@@ -91,5 +105,98 @@ describe("rss linked article content", () => {
     const hydrated = await hydrateRssItemWithLinkedContent(item, { timeoutMs: 3000 });
     expect(hydrated).toEqual(item);
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes share and audio boilerplate from article chrome", async () => {
+    const item = {
+      source: "rss" as const,
+      sourceId: "sample",
+      source_item_key: "item-2",
+      content_hash: "sha256:old-2",
+      title: "Gemma Article",
+      rawText: "Fallback summary",
+      canonicalUrl: "https://example.com/articles/gemma",
+    };
+    const noisyHtml = `<!doctype html>
+      <html>
+        <body>
+          <article>
+            <nav aria-label="Breadcrumb">Breadcrumb / Innovation / AI</nav>
+            <div class="share-toolbar">Share <a href="https://x.com/">x.com</a> Copy link</div>
+            <section class="audio-player">
+              <p>Your browser does not support the audio element.</p>
+              <p>Listen to article</p>
+              <p>[[duration]] minutes</p>
+              <p>Voice</p>
+              <p>Speed</p>
+            </section>
+            <h1>Accelerating Gemma 4</h1>
+            <p>Main body paragraph with details.</p>
+            <p>Another paragraph for developers.</p>
+          </article>
+        </body>
+      </html>`;
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      new Response(noisyHtml, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const hydrated = await hydrateRssItemWithLinkedContent(item, { timeoutMs: 3000 });
+    expect(hydrated.rawText).toContain("# Accelerating Gemma 4");
+    expect(hydrated.rawText).toContain("Main body paragraph with details.");
+    expect(hydrated.rawText).toContain("Another paragraph for developers.");
+    expect(hydrated.rawText).not.toContain("Breadcrumb");
+    expect(hydrated.rawText).not.toContain("Share");
+    expect(hydrated.rawText).not.toContain("Copy link");
+    expect(hydrated.rawText).not.toContain("Listen to article");
+    expect(hydrated.rawText).not.toContain("Your browser does not support the audio element.");
+    expect(hydrated.rawText).not.toContain("[[duration]] minutes");
+    expect(hydrated.rawText).not.toContain("Voice");
+    expect(hydrated.rawText).not.toContain("Speed");
+  });
+
+  it("uses extracted article heading as canonical title", async () => {
+    const item = {
+      source: "rss" as const,
+      sourceId: "sample",
+      source_item_key: "item-3",
+      content_hash: "sha256:old-3",
+      title: "telus-uses-ai-to-alter-call-agent-accents-a3868f63",
+      rawText: "Fallback summary",
+      canonicalUrl: "https://example.com/articles/telus",
+    };
+    const html = `<!doctype html>
+      <html>
+        <head>
+          <title>Telus Uses AI to Alter Call-Agent Accents | Data Science News</title>
+        </head>
+        <body>
+          <article>
+            <h1>Telus Uses AI to Alter Call-Agent Accents</h1>
+            <p>Main article paragraph.</p>
+          </article>
+        </body>
+      </html>`;
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      new Response(html, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const hydrated = await hydrateRssItemWithLinkedContent(item, { timeoutMs: 3000 });
+    expect(hydrated.title).toBe("Telus Uses AI to Alter Call-Agent Accents");
+    expect(hydrated.rawText).toContain("# Telus Uses AI to Alter Call-Agent Accents");
+    expect(hydrated.content_hash).toBe(
+      rssContentHash({
+        title: "Telus Uses AI to Alter Call-Agent Accents",
+        body: hydrated.rawText,
+        canonicalUrl: "https://example.com/articles/telus",
+      }),
+    );
   });
 });

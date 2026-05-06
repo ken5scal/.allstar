@@ -77,7 +77,7 @@ describe("manual run with multiple rss sources", () => {
     const vault = createVaultMockAdapter(vaultPath);
     const notes = await vault.listNotePathsUnder("src");
     expect(notes.length).toBe(4);
-    expect(notes.some((n) => n.includes("rss-a") && n.includes("hello-rss"))).toBe(
+    expect(notes.some((n) => n.includes("rss-a") && n.includes("Hello RSS"))).toBe(
       true,
     );
     expect(notes.some((n) => n.includes("rss-b"))).toBe(true);
