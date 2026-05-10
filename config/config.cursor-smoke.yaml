@@ -1,8 +1,8 @@
 # Cursor SDK 要約・タグ付けの動作確認用（ネットワーク + CURSOR_API_KEY 必要）
 # 使い方:
 #   ./scripts/prepare-cursor-smoke-vault.sh
-#   npm run obsflow -- validate --config examples/config.cursor-smoke.yaml
-#   OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config examples/config.cursor-smoke.yaml --targets summarize
+#   npm run obsflow -- validate --config config/config.cursor-smoke.yaml
+#   OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config config/config.cursor-smoke.yaml --targets summarize
 #
 # 作業用 Vault は git 対象外の test/work/cursor-ai-smoke-vault にコピーされます。
 
@@ -40,11 +40,11 @@ ai:
   model: "composer-2"
   tags:
     mode: "local_master"
-    master_path: "../config/tag-master.yaml"
+    master_path: "./tag-master.yaml"
     max_tags: 5
   categories:
     mode: "local_master"
-    master_path: "../config/category-master.yaml"
+    master_path: "./category-master.yaml"
 
 jobs:
   - id: "summarize-main"

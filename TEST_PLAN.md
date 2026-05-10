@@ -34,7 +34,7 @@
 | build | `npm run build` |
 | validate | `npm run obsflow -- validate --config test/fixtures/config.mock.yaml` |
 | tick | `OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- tick --config test/fixtures/config.mock.yaml` |
-| run all (manual) | `npm run obsflow -- run --config examples/config.yaml` |
+| run all (manual) | `npm run obsflow -- run --config config/config.yaml` |
 | run targets | `OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config test/fixtures/config.mock.yaml --targets collect-rss,summarize` |
 | smoke | `npm run smoke` |
 
@@ -49,26 +49,27 @@
 ### 状態 DB を完全リセットする
 
 ```bash
-mv "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db" "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
-rm -f "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db-wal" "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db-shm"
+STATE_DB="/absolute/path/to/your/state.db"
+mv "$STATE_DB" "$STATE_DB.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+rm -f "${STATE_DB}-wal" "${STATE_DB}-shm"
 ```
 
 ### ローカル単発実行（収集→要約）
 
 ```bash
-cd /Users/k.suzuki/workspace/.allstar
-npm run obsflow -- validate --config examples/config.yaml
-OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config examples/config.yaml --targets collect-rss,summarize
+cd /absolute/path/to/.allstar
+npm run obsflow -- validate --config config/config.yaml
+OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config config/config.yaml --targets collect-rss,summarize
 ```
 
 ### launchd 登録
 
 ```bash
-cd /Users/k.suzuki/workspace/.allstar
+REPO_DIR="/absolute/path/to/.allstar"
+cd "$REPO_DIR"
 mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs/obsflow"
 cp "launchd/obsflow.plist.example" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
 NODE_BIN="$(which node)"
-REPO_DIR="/Users/k.suzuki/workspace/.allstar"
 sed -i '' "s|{{WORKING_DIRECTORY}}|$REPO_DIR|g" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
 sed -i '' "s|/Users/you/.nodebrew/current/bin/node|$NODE_BIN|g" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
 plutil -lint "$HOME/Library/LaunchAgents/com.local.obsflow.plist"

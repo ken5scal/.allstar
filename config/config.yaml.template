@@ -1,14 +1,15 @@
-# このリポジトリで実行できる設定例です。
+# このリポジトリで実行できる設定テンプレートです。
+# `config/config.yaml` にコピーして、環境依存の値を置き換えてから使ってください。
 # 各フィールドの詳細は DETAILED_DESIGN.md を参照してください。
 
 version: 1
 timezone: "Asia/Tokyo"
 
 defaults:
-  # 利用する Obsidian Vault のルートパスを指定してください。
-  # vault_path: "/Users/k.suzuki/workspace/ken5scal"
-  # vault_path: "/Users/k.suzuki/workspace/.allstar/test/work/vault"
-  vault_path: "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase"
+  # 利用する Obsidian Vault の絶対パスに置き換えてください。
+  vault_path: "/absolute/path/to/your/ObsidianVault"
+  # ローカル smoke 用の例:
+  # vault_path: "../test/work/vault"
   # 任意: vault_path 配下のこのサブフォルダに obsflow ファイルを書き込みます。
   # vault_folder: "ObsFlow"
   vault_provider: "mock"
@@ -17,8 +18,9 @@ defaults:
   # rss_provider: "mock"
   state:
     driver: "sqlite"
-    dsn: "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db"
-    # dsn: "/Users/k.suzuki/workspace/.allstar/examples/.obsflow/state.db"
+    dsn: "./.obsflow/state.db"
+    # あるいは Vault 配下など任意の保存先を指定できます。
+    # dsn: "/absolute/path/to/your/state.db"
   auth:
     x_bearer_token_env: "X_BEARER_TOKEN"
     x_oauth2_access_token_env: "X_OAUTH2_ACCESS_TOKEN"
@@ -51,11 +53,11 @@ ai:
   # 記事へのタグ付けに必要な設定
   tags:
     mode: "local_master"
-    master_path: "/Users/k.suzuki/workspace/.allstar/config/tag-master.yaml"
+    master_path: "./tag-master.yaml"
     max_tags: 5
   categories:
     mode: "local_master"
-    master_path: "/Users/k.suzuki/workspace/.allstar/config/category-master.yaml"
+    master_path: "./category-master.yaml"
 
 jobs:
   - id: "summarize-main"

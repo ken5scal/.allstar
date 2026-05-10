@@ -22,7 +22,7 @@
     <string>/Users/you/workspace/.allstar/dist/main.js</string>
     <string>tick</string>
     <string>--config</string>
-    <string>/Users/you/workspace/.allstar/examples/config.yaml</string>
+    <string>/Users/you/workspace/.allstar/config/config.yaml</string>
   </array>
   <key>StandardOutPath</key>
   <string>/Users/you/Library/Logs/obsflow/obsflow.out.jsonl</string>

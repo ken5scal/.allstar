@@ -92,7 +92,7 @@ views:
   - `updateAiSummary()` は現状 `fs` で直接書き換えており、「Vault 更新は Obsidian Skills 経由」という設計と完全には一致していない。
 - `src/jobs/summarize.ts` / `src/jobs/digest.ts`
   - 対象ルートが `Sources/...` に固定されている。
-- `examples/config.yaml`
+- `config/config.yaml`
   - `vault_provider`, `vault_path`, `auth.cursor_api_key_env` はあるが、Base/レコード配置/agent/sub-agent 設定はない。
 
 ## 3. 実装方針
@@ -212,7 +212,7 @@ bases:
 
 ### 4.1 設定・型
 
-- `examples/config.yaml`
+- `config/config.yaml`
   - `records` ブロックを追加する。
   - `bases` ブロックを追加する。
 - `test/fixtures/config.mock.yaml`
@@ -291,7 +291,7 @@ bases:
 
 - `records` / `bases` 設定を `src/types.ts` に追加。
 - `src/config.ts` で parse/default/validation を実装。
-- `examples/config.yaml` と test fixtures を更新。
+- `config/config.yaml` と test fixtures を更新。
 - 完了条件:
   - `obsflow validate` が新旧最小設定で通る。
   - 不正な絶対 Base path、`..` を含む record template、未知 view type が失敗する。

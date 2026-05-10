@@ -21,7 +21,7 @@
     <string>{{WORKING_DIRECTORY}}/dist/main.js</string>
     <string>tick</string>
     <string>--config</string>
-    <string>{{WORKING_DIRECTORY}}/examples/config.yaml</string>
+    <string>{{WORKING_DIRECTORY}}/config/config.yaml</string>
   </array>
   <key>StandardOutPath</key>
   <string>/Users/you/Library/Logs/obsflow/obsflow.out.jsonl</string>

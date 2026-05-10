@@ -19,41 +19,47 @@ npm run lint
 npm run build
 npm run obsflow -- validate --config test/fixtures/config.mock.yaml
 OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- tick --config test/fixtures/config.mock.yaml
-npm run obsflow -- run --config examples/config.yaml
-npm run obsflow -- run --config examples/config.yaml --targets collect-rss
+npm run obsflow -- run --config config/config.yaml
+npm run obsflow -- run --config config/config.yaml --targets collect-rss
 ```
 
 Optional credentials via `.env` (`CURSOR_API_KEY`, `SLACK_WEBHOOK_URL`, `X_BEARER_TOKEN`, etc.). See [TEST_PLAN.md](./TEST_PLAN.md) for test and smoke commands. Example launchd: [launchd/obsflow.plist.example](launchd/obsflow.plist.example).
+
+`config/config.yaml` is intentionally local-only. Start by copying the tracked template and editing the machine-specific paths:
+
+```bash
+cp config/config.yaml.template config/config.yaml
+$EDITOR config/config.yaml
+```
 
 ## Operations Quickstart
 
 ### Clear state DB
 
-`examples/config.yaml` currently points `defaults.state.dsn` to:
-
-`/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db`
+Use the `defaults.state.dsn` value from your local `config/config.yaml`.
 
 ```bash
-mv "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db" "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
-rm -f "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db-wal" "/Users/k.suzuki/workspace/ken5scal/KnowledgeBase/state.db-shm"
+STATE_DB="/absolute/path/to/your/state.db"
+mv "$STATE_DB" "$STATE_DB.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+rm -f "${STATE_DB}-wal" "${STATE_DB}-shm"
 ```
 
 ### Local one-shot run
 
 ```bash
-cd /Users/k.suzuki/workspace/.allstar
-npm run obsflow -- validate --config examples/config.yaml
-OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config examples/config.yaml --targets collect-rss,summarize
+cd /absolute/path/to/.allstar
+npm run obsflow -- validate --config config/config.yaml
+OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config config/config.yaml --targets collect-rss,summarize
 ```
 
 ### Register launchd
 
 ```bash
-cd /Users/k.suzuki/workspace/.allstar
+REPO_DIR="/absolute/path/to/.allstar"
+cd "$REPO_DIR"
 mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs/obsflow"
 cp "launchd/obsflow.plist.example" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
 NODE_BIN="$(which node)"
-REPO_DIR="/Users/k.suzuki/workspace/.allstar"
 sed -i '' "s|{{WORKING_DIRECTORY}}|$REPO_DIR|g" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
 sed -i '' "s|/Users/you/.nodebrew/current/bin/node|$NODE_BIN|g" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
 plutil -lint "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
