@@ -62,6 +62,28 @@ launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.local.obsflow
 launchctl kickstart -k "gui/$(id -u)/com.local.obsflow"
 ```
 
+### Stop and restart launchd
+
+**Stop (unload the agent):** removes the job from your user’s `launchd` session until you bootstrap it again.
+
+```bash
+launchctl bootout "gui/$(id -u)/com.local.obsflow"
+```
+
+**Restart a job that is already loaded:** kills the running process and starts a new one (does not re-read the plist from disk).
+
+```bash
+launchctl kickstart -k "gui/$(id -u)/com.local.obsflow"
+```
+
+**Reload after editing the plist:** boot out, bootstrap the updated file, then kickstart (same sequence as in [Register launchd](#register-launchd) after `plutil -lint`).
+
+```bash
+launchctl bootout "gui/$(id -u)" com.local.obsflow 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.local.obsflow.plist"
+launchctl kickstart -k "gui/$(id -u)/com.local.obsflow"
+```
+
 To inspect:
 
 ```bash

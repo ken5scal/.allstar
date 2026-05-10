@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/biscuit.md",
+                "file": "test/work/cursor-ai-smoke-vault/src/rss/sample/2026/05/05/second.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "biscuit"
+              "title": "second"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/biscuit.md",
+                "file": "test/work/cursor-ai-smoke-vault/src/rss/sample/2026/05/05/second.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for biscuit"
+              "title": "Backlinks for second"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/biscuit.md",
+                "file": "test/work/cursor-ai-smoke-vault/src/rss/sample/2026/05/05/second.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from biscuit"
+              "title": "Outgoing links from second"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/biscuit.md",
+                "file": "test/work/cursor-ai-smoke-vault/src/rss/sample/2026/05/05/second.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of biscuit"
+              "title": "Outline of second"
             }
           }
         ]
@@ -183,43 +183,42 @@
       "bases:Create new base": false
     }
   },
-  "active": "ff8fbc9ea93f21b0",
+  "active": "e6de23dc566b5774",
   "lastOpenFiles": [
-    "docs/OBSIDIAN_SCHEMA.md",
-    "docs/DETAILED_DESIGN.md",
-    "docs/ARCHITECTURE_OVERVIEW.md",
-    "docs/feature_plan_AI_SUMMARY_TAGS_IMPLEMENTATION.md",
-    "docs/AI_SUMMARY_TAGS_IMPLEMENTATION_PLAN.md",
-    "docs",
-    "test/work/state.db-shm",
-    "test/work/state.db-wal",
-    "test/unit/paths.test.ts",
-    "test/unit/base.test.ts",
-    "test/fixtures/config.e2e.feedsmith.yaml",
-    "src/bases.ts",
-    "src/base.ts",
-    "test/work/vault/src/rss/hn/2026/05/05/show-hn-i-built-a-new-word-game-wordtrak.md",
-    "test/work/vault/src/rss/hn/2026/05/05/ios-27-is-adding-a-create-a-pass-button-to-apple-wallet.md",
-    "test/work/vault/src/rss/hn/2026/05/05/today-i-ve-made-the-difficult-decision-to-reduce-the-size-of-coinbase-by-14.md",
-    "test/work/vault/src/rss/hn/2026/05/05/srgb-profile-comparison.md",
-    "test/work/vault/Records.base",
-    "test/work/vault/src/rss/hn/2026/05/05/1966-ford-mustang-converted-into-a-tesla-with-working-full-self-driving.md",
-    "test/work/vault/src/rss/hn/2026/05/05/2-d-mathematical-curves.md",
-    "test/work/vault/src/rss/hn/2026/05/05/setting-up-server-monitoring-for-a-rails-app-on-hatchbox.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/1966-ford-mustang-converted-into-a-tesla-with-working-full-self-driving.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/2-d-mathematical-curves.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/gap-between-national-food-production-and-food-based-dietary-guidance-2025.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/kids-bypass-age-verification-with-fake-moustaches.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/talking-to-strangers-at-the-gym.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/formatting-a-25m-line-codebase-overnight.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/when-networking-doesn-t-work.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/biscuit.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/redis-array-short-story-of-a-long-development-process.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/pgxbackup-continuity-support-for-pgbackrest.md",
+    "test/unit/category-master.test.ts",
+    "test/fixtures/category-master.min.yaml",
+    "test/fixtures/category-master.bad-empty.yaml",
+    "test/fixtures/category-master.bad-dup.yaml",
+    "src/category-master.ts",
+    "docs/OBSERVABILITY_CONTENT_CATEGORY_PLAN.md",
+    "config/category-master.yaml",
+    "dist/category-master.d.ts",
+    "dist/category-master.d.ts.map",
+    "dist/category-master.js",
+    "dist/category-master.js.map",
+    "test/work/vault/src/rss/hn/2026/05/06/wolfenstein-3d-for-gameboy-color-on-custom-cartridge-2016.md",
+    "test/work/vault/src/rss/hn/2026/05/06/the-boring-internet.md",
+    "OBSIDIAN_BASE_RECORD_PLAN.md",
+    "test/work/vault/src/rss/hn/2026/05/06/behavior-oriented-concurrency-for-python.md",
+    "test/work/vault/src/rss/hn/2026/05/06/batteries-not-included-or-required-for-these-smart-home-sensors.md",
     "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/securing-a-dod-contractor-finding-a-multi-tenant-authorization-vulnerability.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/show-hn-got-tired-of-paying-100-mo-for-seo-tools-so-i-built-an-alternative.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/does-employment-slow-cognitive-decline-evidence-from-labor-market-shocks.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/mouse-pointer-as-a-mere-mortal.md",
-    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05"
+    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/hand-drawn-qr-codes.md",
+    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/2-d-mathematical-curves.md",
+    "test/fixtures/test-output-vault/src/sns/ai/2026/05/05/mock-x-search-post.md",
+    "test/work/cursor-ai-smoke-vault/src/rss/sample/2026/05/05/second.md",
+    "test/work/vault/src/rss/hn/2026/05/05/agent-skills.md",
+    "test/work/vault/src/rss/hn/2026/05/05/2-d-mathematical-curves.md",
+    "test/fixtures/test-output-vault-e2e/src/rss/hn-live/2026/05/05/biscuit.md",
+    "test/work/vault/src/rss/hn/2026/05/06/how-to-organize-3-acquired-companies-into-one-coherent-website.md",
+    "test/work/vault/src/rss/hn/2026/05/06/multi-stroke-text-effect-in-css.md",
+    "test/work/vault/src/rss/hn/2026/05/06/mark-cuban-openai-will-never-return-the-1t-it-s-investing-video.md",
+    "test/work/vault/src/rss/hn/2026/05/06/wiki-builder-skill-to-build-llm-knowledge-bases.md",
+    "test/work/vault/src/rss/hn/2026/05/06/reverse-engineering-the-1998-ultima-online-demo-server.md",
+    "test/work/vault/src/rss/hn/2026/05/06/knitting-bullshit.md",
+    "test/work/vault/src/rss/hn/2026/05/06/make-some-art-with-your-phone-sensors.md",
+    "test/work/vault/src/rss/hn/2026/05/06/ombudsman-column-the-pentagon-is-trying-to-silence-me.md",
+    "test/work/vault/src/rss/hn/2026/05/06/youtube-your-rss-feeds-are-broken.md",
+    "test/work/vault/src/rss/hn/2026/05/06/245tb-micron-6600-ion-data-center-ssd-now-shipping.md",
+    "test/work/vault/src/rss/hn/2026/05/06/telus-uses-ai-to-alter-call-agent-accents.md"
   ]
 }
