@@ -64,6 +64,13 @@ jobs:
     type: "summarize"
     enabled: true
     schedule: "*/15 * * * *"
+    selection:
+      # `captured` backlog が 20 件を超えたら summarize を丸ごと止める。
+      skip_if_pending_over: 20
+      # 通常時も 1 回の summarize 対象を絞って AI コストを抑える。
+      max_items: 3
+      order_by: "captured_at"
+      order: "newest_first"
 
 # Vault 内のレコード配置設定（任意。未指定時は Obsidian Bases 向けの既定値を使用）。
 # 注意:

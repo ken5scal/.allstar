@@ -119,12 +119,23 @@ export type DigestCadence =
 
 export type JobType = "summarize" | "digest";
 
+export type SummarizeSelectionOrderBy = "captured_at";
+export type SummarizeSelectionOrder = "oldest_first" | "newest_first";
+
+export interface SummarizeSelectionConfig {
+  max_items?: number;
+  skip_if_pending_over?: number;
+  order_by: SummarizeSelectionOrderBy;
+  order: SummarizeSelectionOrder;
+}
+
 export interface JobConfig {
   id: string;
   type: JobType;
   enabled: boolean;
   schedule: string;
   cadence?: DigestCadence;
+  selection?: SummarizeSelectionConfig;
 }
 
 /** ISO folder date segments for record paths: captured time vs published fallback. */

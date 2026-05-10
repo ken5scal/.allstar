@@ -38,6 +38,9 @@
 | run targets | `OBSFLOW_SKIP_TICK_LOCK=1 npm run obsflow -- run --config test/fixtures/config.mock.yaml --targets collect-rss,summarize` |
 | smoke | `npm run smoke` |
 
+- summarize の backlog 制御を使う場合、manual 実行結果に `pending` / `selected` / `deferred` が出る。
+- `jobs[].selection.skip_if_pending_over` を超えた backlog では summarize は成功終了のまま defer され、ノートは `captured` のまま残る。
+
 ## CP6 手動
 
 - X: `sources.x.provider: x-sdk`、環境変数 `X_BEARER_TOKEN`、Bookmarks 利用時は `X_OAUTH2_ACCESS_TOKEN`。

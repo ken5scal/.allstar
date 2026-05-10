@@ -1,4 +1,4 @@
-# Obsidian Base レコード登録機能 実装計画
+# Obsidian Base レコード登録機能 設計
 
 最終更新: 2026-05-05
 

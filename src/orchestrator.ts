@@ -79,6 +79,9 @@ type ManualJobResult = {
   processed?: number;
   skipped?: number;
   failed?: number;
+  pendingTotal?: number;
+  targetTotal?: number;
+  deferredTotal?: number;
   error?: string;
 };
 
@@ -104,8 +107,20 @@ function printManualSummary(args: {
     for (const r of args.results) {
       const scope = r.sourceId ? `${r.jobId} [${r.sourceId}]` : r.jobId;
       if (r.processed !== undefined) {
+        const metrics = [
+          `processed=${r.processed}`,
+          `skipped=${r.skipped ?? 0}`,
+          `failed=${r.failed ?? 0}`,
+        ];
+        if (r.pendingTotal !== undefined) {
+          metrics.push(
+            `pending=${r.pendingTotal}`,
+            `selected=${r.targetTotal ?? 0}`,
+            `deferred=${r.deferredTotal ?? 0}`,
+          );
+        }
         lines.push(
-          `- ${scope}: ${r.status} processed=${r.processed} skipped=${r.skipped ?? 0} failed=${r.failed ?? 0}`,
+          `- ${scope}: ${r.status} ${metrics.join(" ")}`,
         );
       } else if (r.error) {
         lines.push(`- ${scope}: ${r.status} error=${r.error}`);
@@ -115,11 +130,16 @@ function printManualSummary(args: {
     }
   }
 
-  const collectRows = args.results.filter((r) => r.processed !== undefined);
+  const collectRows = args.results.filter(
+    (r) => r.processed !== undefined && r.jobId.startsWith("collect-"),
+  );
   const processedTotal = collectRows.reduce((n, r) => n + (r.processed ?? 0), 0);
   const skippedTotal = collectRows.reduce((n, r) => n + (r.skipped ?? 0), 0);
+  const summarizeRows = args.results.filter((r) => r.pendingTotal !== undefined);
+  const summarizeProcessed = summarizeRows.reduce((n, r) => n + (r.processed ?? 0), 0);
+  const summarizeDeferred = summarizeRows.reduce((n, r) => n + (r.deferredTotal ?? 0), 0);
   lines.push(
-    `summary: exit=${args.exitCode} failures=${args.failures} collected_processed=${processedTotal} collected_skipped=${skippedTotal}`,
+    `summary: exit=${args.exitCode} failures=${args.failures} collected_processed=${processedTotal} collected_skipped=${skippedTotal} summarize_processed=${summarizeProcessed} summarize_deferred=${summarizeDeferred}`,
   );
   process.stdout.write(`${lines.join("\n")}\n`);
 }
@@ -659,6 +679,7 @@ async function runOrchestration(
             jobId: job.id,
             jobRunId: jr,
             logger: getTickLogger(tickRunId),
+            selection: job.selection,
           });
           if (mode.mode === "manual") {
             manualResults.push({
@@ -667,6 +688,9 @@ async function runOrchestration(
               processed: result.processed,
               skipped: result.skipped,
               failed: result.failed,
+              pendingTotal: result.pendingTotal,
+              targetTotal: result.targetTotal,
+              deferredTotal: result.deferredTotal,
             });
           }
           outcomeTotals.total += 1;
@@ -691,6 +715,9 @@ async function runOrchestration(
                   processed: e.result.processed,
                   skipped: e.result.skipped,
                   failed: e.result.failed,
+                  pendingTotal: e.result.pendingTotal,
+                  targetTotal: e.result.targetTotal,
+                  deferredTotal: e.result.deferredTotal,
                 }
               : {}),
             });

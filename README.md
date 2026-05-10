@@ -32,6 +32,11 @@ cp config/config.yaml.template config/config.yaml
 $EDITOR config/config.yaml
 ```
 
+The template now includes summarize cost controls by default:
+- `selection.max_items: 3` limits each summarize run to three captured records.
+- `selection.skip_if_pending_over: 20` blocks summarize entirely when the backlog is too large.
+- Manual `obsflow run` output shows `pending`, `selected`, and `deferred` counts so you can see the spend scope before backlog drains over time.
+
 ## Operations Quickstart
 
 ### Clear state DB

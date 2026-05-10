@@ -15,6 +15,7 @@ import type {
   ObsflowConfig,
   RecordsConfig,
   RssSourceConfig,
+  SummarizeSelectionConfig,
   XSourcesConfig,
 } from "./types.js";
 import { OBSFLOW_RECORD_KIND } from "./types.js";
@@ -44,6 +45,14 @@ function optStr(v: unknown): string | undefined {
 function optNum(v: unknown): number | undefined {
   if (v === undefined || v === null) return undefined;
   if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
+  return v;
+}
+
+function positiveInt(v: unknown, key: string): number | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== "number" || !Number.isInteger(v) || v <= 0) {
+    throw new Error(`${key} must be a positive integer`);
+  }
   return v;
 }
 
@@ -242,6 +251,32 @@ function parseBaseFilterStrings(filtersRaw: unknown, key: string): string[] {
     throw new Error(`${key} must be a string or array of strings`);
   }
   return filtersRaw.map((row, i) => str(row, `${key}[${i}]`));
+}
+
+function parseSummarizeSelectionBlock(
+  raw: unknown,
+  keyPrefix: string,
+): SummarizeSelectionConfig {
+  if (!isRecord(raw)) throw new Error(`${keyPrefix} must be a mapping`);
+  const order_by = optStr(raw.order_by)?.trim() || "captured_at";
+  if (order_by !== "captured_at") {
+    throw new Error(`${keyPrefix}.order_by must be captured_at`);
+  }
+  const order = optStr(raw.order)?.trim() || "oldest_first";
+  if (order !== "oldest_first" && order !== "newest_first") {
+    throw new Error(`${keyPrefix}.order must be oldest_first or newest_first`);
+  }
+  const max_items = positiveInt(raw.max_items, `${keyPrefix}.max_items`);
+  const skip_if_pending_over = positiveInt(
+    raw.skip_if_pending_over,
+    `${keyPrefix}.skip_if_pending_over`,
+  );
+  return {
+    order_by,
+    order,
+    ...(max_items !== undefined ? { max_items } : {}),
+    ...(skip_if_pending_over !== undefined ? { skip_if_pending_over } : {}),
+  };
 }
 
 function parseBasesBlock(raw: unknown): BaseConfig[] {
@@ -525,12 +560,20 @@ export function normalizeConfig(raw: unknown, cwd: string): ObsflowConfig {
       throw new Error(`jobs[${i}].type must be summarize or digest`);
     }
     const type: JobType = row.type;
+    const selection =
+      type === "summarize" && row.selection !== undefined && row.selection !== null ?
+        parseSummarizeSelectionBlock(row.selection, `jobs[${i}].selection`)
+      : undefined;
+    if (type !== "summarize" && row.selection !== undefined && row.selection !== null) {
+      throw new Error(`jobs[${i}].selection is only supported for summarize jobs`);
+    }
     return {
       id: str(row.id, `jobs[${i}].id`),
       type,
       enabled: bool(row.enabled, `jobs[${i}].enabled`),
       schedule: str(row.schedule, `jobs[${i}].schedule`),
       cadence: optStr(row.cadence) as JobConfig["cadence"],
+      ...(selection ? { selection } : {}),
     };
   });
 

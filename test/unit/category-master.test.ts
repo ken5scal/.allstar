@@ -33,7 +33,14 @@ describe("category master file", () => {
 
   it("keeps repository category master in sync with OBSIDIAN_SCHEMA category enum", () => {
     const master = loadCategoryMasterFile(path.join(repo, "config", "category-master.yaml"));
-    const schema = fs.readFileSync(path.join(repo, "docs", "OBSIDIAN_SCHEMA.md"), "utf8");
+    const schemaPath = [
+      path.join(repo, "docs", "OBSIDIAN_SCHEMA.md"),
+      path.join(repo, ".kiro", "steering", "OBSIDIAN_SCHEMA.md"),
+    ].find((candidate) => fs.existsSync(candidate));
+    if (!schemaPath) {
+      throw new Error("OBSIDIAN_SCHEMA.md not found in docs/ or .kiro/steering/");
+    }
+    const schema = fs.readFileSync(schemaPath, "utf8");
     const match = schema.match(/### 2\.3 `category` enum[\s\S]*?(?=\n> 実装上の注意:)/);
     expect(match).not.toBeNull();
     const categories = [...match![0].matchAll(/^- `([^`]+)`/gm)].map((m) => m[1]);

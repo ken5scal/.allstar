@@ -56,6 +56,19 @@ Skills are located in `.Codex/skills/kiro-*/SKILL.md`
 - Keep steering current and verify alignment with `/kiro-spec-status`
 - Follow the user's instructions precisely, and within that scope act autonomously: gather the necessary context and complete the requested work end-to-end in this run, asking questions only when essential information is missing or the instructions are critically ambiguous.
 
+## Documentation Governance
+- `AGENTS.md`, `CLAUDE.md`, and every `.kiro/steering/*.md` file are mandatory context before planning, specification work, or implementation.
+- Treat `.kiro/steering/**` and `.kiro/specs/**` as protected, human-reviewed documents.
+- Do not create, edit, rename, or delete protected files unless the human explicitly approves that document change in the current thread.
+- Exception: `.kiro/specs/<feature>/note-from-coding-agents.md` is agent-writable and append-only for the active feature.
+- During implementation, append concise notes to the active feature's `.kiro/specs/<feature>/note-from-coding-agents.md` when user instructions, design rationale, implementation discoveries, validation findings, or spec/code mismatches need to survive the session.
+- Each note entry must include date/time, agent name, session or branch identifier, related files/specs, and the key decision, finding, or open issue.
+- After implementation is accepted in human review, compare the accepted code and feedback notes with steering/spec documents. If requirements or design are stale, propose the required updates and apply them only when the human explicitly approves the protected-document change.
+- If work does not belong to an existing feature spec yet, keep restart notes in `docs/ai/` until the feature has a home under `.kiro/specs/`.
+- `docs/` is for durable general project documentation.
+- `docs/ai/` is for rough AI working notes, validation steps, and restart context scoped to one task, issue, or refactor slice.
+- `docs/ai/plan/` is the canonical location for new plan outputs. Treat `docs/ai/plans/` as a legacy path and do not add new files there.
+
 ### Test Depth Policy (Unit / Integration / E2E)
 
 - Every behavior change MUST update or add unit tests for deterministic logic.
