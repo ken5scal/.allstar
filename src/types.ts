@@ -45,6 +45,11 @@ export interface DefaultsBlock {
   alert: AlertDefaults;
 }
 
+export interface RssBootstrapConfig {
+  max_initial_items?: number;
+  published_within_days?: number;
+}
+
 export interface RssSourceConfig {
   id: string;
   enabled: boolean;
@@ -60,6 +65,7 @@ export interface RssSourceConfig {
   /** Timeout in milliseconds for each linked article fetch. */
   article_fetch_timeout_ms?: number;
   provider?: RssProviderName;
+  bootstrap?: RssBootstrapConfig;
 }
 
 export interface XSearchConfig {

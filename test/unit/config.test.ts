@@ -52,12 +52,37 @@ describe("config", () => {
     expect(cfg.sources.rss[0].article_fetch_timeout_ms).toBe(2500);
   });
 
+  it("parses rss bootstrap settings", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
+      sources: { rss: Array<Record<string, unknown>> };
+    };
+    raw.sources.rss[0].bootstrap = {
+      max_initial_items: 3,
+      published_within_days: 7,
+    };
+    const cfg = normalizeConfig(raw, mockCfgDir);
+    expect(cfg.sources.rss[0].bootstrap).toEqual({
+      max_initial_items: 3,
+      published_within_days: 7,
+    });
+  });
+
   it("rejects non-positive rss article fetch timeout", () => {
     const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
       sources: { rss: Array<Record<string, unknown>> };
     };
     raw.sources.rss[0].article_fetch_timeout_ms = 0;
     expect(() => normalizeConfig(raw, mockCfgDir)).toThrow(/positive number/);
+  });
+
+  it("rejects non-positive rss bootstrap limits", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
+      sources: { rss: Array<Record<string, unknown>> };
+    };
+    raw.sources.rss[0].bootstrap = {
+      max_initial_items: 0,
+    };
+    expect(() => normalizeConfig(raw, mockCfgDir)).toThrow(/positive integer/);
   });
 
   it("parses cursor AI provider and tag master settings", () => {

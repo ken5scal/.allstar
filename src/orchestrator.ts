@@ -5,7 +5,13 @@ import { loadConfigFile, normalizeConfig, validateConfigEnv } from "./config.js"
 import { newId } from "./ids.js";
 import { createRootLogger } from "./logger.js";
 import { isCronDue } from "./schedule.js";
-import type { ObsflowConfig, ExitSeverity, FailureReport, JobRun } from "./types.js";
+import type {
+  ObsflowConfig,
+  ExitSeverity,
+  FailureReport,
+  JobRun,
+  RssBootstrapConfig,
+} from "./types.js";
 import type { AlertAdapter } from "./adapters/interfaces.js";
 import { createAlertMockAdapter } from "./adapters/alert-mock.js";
 import { createSlackAlertAdapter } from "./adapters/alert-slack.js";
@@ -188,13 +194,24 @@ export async function runManual(
   configPath: string,
   cwd: string,
   targets: string[],
+  options: {
+    rssBootstrapAll?: RssBootstrapConfig;
+  } = {},
 ): Promise<number> {
-  return runOrchestration(configPath, cwd, { mode: "manual", targets });
+  return runOrchestration(configPath, cwd, {
+    mode: "manual",
+    targets,
+    rssBootstrapAll: options.rssBootstrapAll,
+  });
 }
 
 type Mode =
   | { mode: "tick" }
-  | { mode: "manual"; targets: string[] };
+  | {
+      mode: "manual";
+      targets: string[];
+      rssBootstrapAll?: RssBootstrapConfig;
+    };
 
 async function runOrchestration(
   configPath: string,
@@ -304,6 +321,15 @@ async function runOrchestration(
     const want = (name: string) =>
       mode.mode === "tick" || !targetSet ? true : targetSet.has(name);
 
+    if (mode.mode === "manual" && mode.rssBootstrapAll) {
+      log.info({
+        msg: "manual_rss_bootstrap_override",
+        bootstrap_max_initial_items: mode.rssBootstrapAll.max_initial_items,
+        bootstrap_published_within_days:
+          mode.rssBootstrapAll.published_within_days,
+      });
+    }
+
     for (const rss of cfg.sources.rss) {
       if (!rss.enabled) continue;
       if (!want("collect-rss")) continue;
@@ -328,13 +354,18 @@ async function runOrchestration(
         status: "running",
       });
       try {
+        const effectiveRss =
+          mode.mode === "manual" && mode.rssBootstrapAll ?
+            { ...rss, bootstrap: mode.rssBootstrapAll }
+          : rss;
         const result = await collectRssSource({
           cfg,
-          rss,
+          rss: effectiveRss,
           state,
           vault,
           tickRunId,
           jobRunId: jr,
+          logger: log,
         });
         if (mode.mode === "manual") {
           manualResults.push({
