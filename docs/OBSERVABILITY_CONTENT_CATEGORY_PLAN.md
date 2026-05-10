@@ -10,7 +10,7 @@
 2. RSS 本文欠落を、人間の読者が Obsidian Base 上でマーキングできるようにする。
 3. AI が生成する `category` を schema/master に準拠させ、過推論による値の拡散を防ぐ。
 
-本計画は `OBSIDIAN_BASE_RECORD_PLAN.md` の「次スコープ外だが先に管理する運用バックログ」を、実装に移せる粒度へ分解したものとする。
+本計画は `.kiro/specs/obsidian-base-record-registration/design.md` の「次スコープ外だが先に管理する運用バックログ」を、実装に移せる粒度へ分解したものとする。
 
 ## 2. スコープ
 

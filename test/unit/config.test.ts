@@ -91,6 +91,37 @@ describe("config", () => {
     });
   });
 
+  it("parses summarize selection policy", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
+      jobs: Array<Record<string, unknown>>;
+    };
+    raw.jobs[0].selection = {
+      max_items: 3,
+      skip_if_pending_over: 10,
+      order_by: "captured_at",
+      order: "newest_first",
+    };
+    const cfg = normalizeConfig(raw, mockCfgDir);
+    expect(cfg.jobs[0]).toMatchObject({
+      selection: {
+        max_items: 3,
+        skip_if_pending_over: 10,
+        order_by: "captured_at",
+        order: "newest_first",
+      },
+    });
+  });
+
+  it("rejects non-positive summarize selection limits", () => {
+    const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
+      jobs: Array<Record<string, unknown>>;
+    };
+    raw.jobs[0].selection = {
+      max_items: 0,
+    };
+    expect(() => normalizeConfig(raw, mockCfgDir)).toThrow(/positive integer/);
+  });
+
   it("rejects unsupported ai.provider instead of falling back to mock", () => {
     const raw = loadConfigFile(path.join(here, "../fixtures/config.mock.yaml")) as {
       ai: Record<string, unknown>;
