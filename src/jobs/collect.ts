@@ -6,12 +6,20 @@ import {
   fetchRssItems,
   hydrateRssItemWithLinkedContent,
 } from "../adapters/feedsmith.js";
+import type { AppLogger } from "../logger.js";
 import type {
   StateRepository,
   StateTx,
   VaultAdapter,
   XCollectorAdapter,
 } from "../adapters/interfaces.js";
+
+type RssBootstrapSelection = {
+  selected: SourceItem[];
+  excluded: SourceItem[];
+  filteredByAge: number;
+  filteredByLimit: number;
+};
 
 function originFromItem(item: SourceItem): string | undefined {
   if (item.canonicalUrl) {
@@ -22,6 +30,67 @@ function originFromItem(item: SourceItem): string | undefined {
     }
   }
   return item.sourceId;
+}
+
+function publishedAtMillis(item: SourceItem): number | null {
+  if (!item.publishedAt) return null;
+  const millis = Date.parse(item.publishedAt);
+  return Number.isNaN(millis) ? null : millis;
+}
+
+export function selectRssBootstrapItems(args: {
+  items: SourceItem[];
+  maxInitialItems?: number;
+  publishedWithinDays?: number;
+  now?: Date;
+}): RssBootstrapSelection {
+  const nowMs = (args.now ?? new Date()).getTime();
+  const decorated = args.items.map((item, originalIndex) => ({
+    item,
+    originalIndex,
+    publishedAtMs: publishedAtMillis(item),
+  }));
+
+  let eligible = decorated;
+  let filteredByAge = 0;
+  if (args.publishedWithinDays !== undefined) {
+    const thresholdMs = nowMs - args.publishedWithinDays * 24 * 60 * 60 * 1000;
+    eligible = decorated.filter(
+      (row) => row.publishedAtMs !== null && row.publishedAtMs >= thresholdMs,
+    );
+    filteredByAge = decorated.length - eligible.length;
+  }
+
+  let selectedDecorated = eligible;
+  if (args.maxInitialItems !== undefined) {
+    selectedDecorated = [...eligible]
+      .sort((a, b) => {
+        if (a.publishedAtMs !== null && b.publishedAtMs !== null) {
+          if (a.publishedAtMs !== b.publishedAtMs) {
+            return b.publishedAtMs - a.publishedAtMs;
+          }
+          return a.originalIndex - b.originalIndex;
+        }
+        if (a.publishedAtMs !== null) return -1;
+        if (b.publishedAtMs !== null) return 1;
+        return a.originalIndex - b.originalIndex;
+      })
+      .slice(0, args.maxInitialItems);
+  }
+
+  const selectedIndexes = new Set(
+    selectedDecorated.map((row) => row.originalIndex),
+  );
+  const excluded = decorated
+    .filter((row) => !selectedIndexes.has(row.originalIndex))
+    .map((row) => row.item);
+
+  return {
+    selected: selectedDecorated.map((row) => row.item),
+    excluded,
+    filteredByAge,
+    filteredByLimit: eligible.length - selectedDecorated.length,
+  };
 }
 
 export function itemToVaultRecord(
@@ -79,6 +148,7 @@ async function processNewItems(args: {
   tickRunId: string;
   jobRunId: string;
   cursorBuilder: (items: SourceItem[]) => string;
+  checkpointItems?: SourceItem[];
   itemTransformer?: (item: SourceItem) => Promise<SourceItem>;
 }): Promise<{ processed: number; skipped: number }> {
   let processed = 0;
@@ -121,12 +191,29 @@ async function processNewItems(args: {
     });
     processed += 1;
   }
-  const cursor = args.cursorBuilder(args.items);
+  const cursor = args.cursorBuilder(args.checkpointItems ?? args.items);
   await args.state.putCheckpoint({
     sourceId: args.checkpointSourceId,
     cursor,
   });
   return { processed, skipped };
+}
+
+async function markItemsSeen(args: {
+  state: StateRepository;
+  checkpointSourceId: string;
+  items: SourceItem[];
+}): Promise<void> {
+  if (!args.items.length) return;
+  await args.state.inTx((tx) => {
+    for (const item of args.items) {
+      tx.markSourceItemSeen(
+        args.checkpointSourceId,
+        item.source_item_key,
+        item.content_hash,
+      );
+    }
+  });
 }
 
 export async function collectRssSource(args: {
@@ -136,6 +223,7 @@ export async function collectRssSource(args: {
   vault: VaultAdapter;
   tickRunId: string;
   jobRunId: string;
+  logger?: AppLogger;
 }): Promise<{ processed: number; skipped: number }> {
   const prov =
     args.rss.provider ?? args.cfg.defaults.rss_provider;
@@ -158,9 +246,52 @@ export async function collectRssSource(args: {
     items = await fetchRssItems(args.rss.url, args.rss.id, "rss");
   }
   const cpId = `rss:${args.rss.id}`;
-  return processNewItems({
+  const bootstrap = args.rss.bootstrap;
+  const isBootstrapRun =
+    bootstrap !== undefined &&
+    (await args.state.getCheckpoint(cpId)) === null;
+  const selection =
+    isBootstrapRun ?
+      selectRssBootstrapItems({
+        items,
+        maxInitialItems: bootstrap.max_initial_items,
+        publishedWithinDays: bootstrap.published_within_days,
+      })
+    : undefined;
+  const itemsToProcess = selection?.selected ?? items;
+  const itemsToSkip = selection?.excluded ?? [];
+
+  if (selection) {
+    args.logger?.info({
+      msg: "collect_rss_bootstrap_start",
+      job_run_id: args.jobRunId,
+      source_id: args.rss.id,
+      checkpoint_source_id: cpId,
+      fetched_total: items.length,
+      bootstrap_max_initial_items: bootstrap?.max_initial_items,
+      bootstrap_published_within_days: bootstrap?.published_within_days,
+    });
+    await markItemsSeen({
+      state: args.state,
+      checkpointSourceId: cpId,
+      items: itemsToSkip,
+    });
+    args.logger?.info({
+      msg: "collect_rss_bootstrap_applied",
+      job_run_id: args.jobRunId,
+      source_id: args.rss.id,
+      checkpoint_source_id: cpId,
+      fetched_total: items.length,
+      bootstrap_selected_total: selection.selected.length,
+      bootstrap_filtered_by_age_total: selection.filteredByAge,
+      bootstrap_filtered_by_limit_total: selection.filteredByLimit,
+    });
+  }
+
+  const result = await processNewItems({
     cfg: args.cfg,
-    items,
+    items: itemsToProcess,
+    checkpointItems: items,
     checkpointSourceId: cpId,
     state: args.state,
     vault: args.vault,
@@ -179,6 +310,21 @@ export async function collectRssSource(args: {
         item_count: it.length,
       }),
   });
+  if (selection) {
+    args.logger?.info({
+      msg: "collect_rss_bootstrap_done",
+      job_run_id: args.jobRunId,
+      source_id: args.rss.id,
+      checkpoint_source_id: cpId,
+      fetched_total: items.length,
+      bootstrap_selected_total: selection.selected.length,
+      bootstrap_filtered_by_age_total: selection.filteredByAge,
+      bootstrap_filtered_by_limit_total: selection.filteredByLimit,
+      processed: result.processed,
+      skipped: result.skipped,
+    });
+  }
+  return result;
 }
 
 export async function collectXSearch(args: {

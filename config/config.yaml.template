@@ -38,6 +38,11 @@ sources:
       schedule: "*/30 * * * *"
       # fixture: "../test/fixtures/rss/sample.xml"
       url: "https://news.ycombinator.com/rss"
+      bootstrap:
+        # 初回 collect-rss だけ最新 N 件に絞ります。
+        max_initial_items: 5
+        # 初回 collect-rss だけ X 日以内の記事に絞ります。
+        published_within_days: 7
 
   x:
     provider: "mock"

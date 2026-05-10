@@ -14,6 +14,7 @@ import type {
   JobType,
   ObsflowConfig,
   RecordsConfig,
+  RssBootstrapConfig,
   RssSourceConfig,
   SummarizeSelectionConfig,
   XSourcesConfig,
@@ -279,6 +280,29 @@ function parseSummarizeSelectionBlock(
   };
 }
 
+function parseRssBootstrapBlock(
+  raw: unknown,
+  keyPrefix: string,
+): RssBootstrapConfig | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (!isRecord(raw)) throw new Error(`${keyPrefix} must be a mapping`);
+  const max_initial_items = positiveInt(
+    raw.max_initial_items,
+    `${keyPrefix}.max_initial_items`,
+  );
+  const published_within_days = positiveInt(
+    raw.published_within_days,
+    `${keyPrefix}.published_within_days`,
+  );
+  if (max_initial_items === undefined && published_within_days === undefined) {
+    return undefined;
+  }
+  return {
+    ...(max_initial_items !== undefined ? { max_initial_items } : {}),
+    ...(published_within_days !== undefined ? { published_within_days } : {}),
+  };
+}
+
 function parseBasesBlock(raw: unknown): BaseConfig[] {
   if (raw === undefined || raw === null) return defaultBasesConfig();
   if (!Array.isArray(raw)) throw new Error("bases must be an array");
@@ -481,6 +505,10 @@ export function normalizeConfig(raw: unknown, cwd: string): ObsflowConfig {
         row.provider === "feedsmith" || row.provider === "mock"
           ? row.provider
           : undefined,
+      bootstrap: parseRssBootstrapBlock(
+        row.bootstrap,
+        `sources.rss[${i}].bootstrap`,
+      ),
     };
   });
 
