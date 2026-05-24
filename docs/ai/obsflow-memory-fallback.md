@@ -1,0 +1,1 @@
+- 2026-05-11 00:05:17 JST: Automation approvals are interactive, so recurring runs should avoid escalation. Keep obsflow config within writable sandbox paths.
